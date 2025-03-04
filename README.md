@@ -6,6 +6,8 @@
 ### Arch Linux
 ### Sway
 ### foot
+### fuzzel
+### waybar
 ### [fish](https://fishshell.com/docs/current/index.html)
 ### micro
 ### firefox
