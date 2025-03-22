@@ -2,8 +2,31 @@
 
 This document lists various Docker Compose files used across my many different projects.
 
-## Open WebUI bundled with Ollama and GPU Support
+## flatnotes
+```yaml
+version: "3"
 
+services:
+  flatnotes:
+    container_name: flatnotes
+    image: dullage/flatnotes:latest
+    environment:
+      PUID: 1000
+      PGID: 1000
+      FLATNOTES_AUTH_TYPE: "password"
+      FLATNOTES_USERNAME: "user"
+      FLATNOTES_PASSWORD: "changeMe!"
+      FLATNOTES_SECRET_KEY: "aLongRandomSeriesOfCharacters"
+    volumes:
+      - "./data:/data"
+      # Optional. Allows you to save the search index in a different location: 
+      # - "./index:/data/.flatnotes"
+    ports:
+      - "8080:8080"
+    restart: unless-stopped
+```
+
+## Open WebUI bundled with Ollama and GPU Support
 ```yaml
 version: '3.8'
 
@@ -29,7 +52,6 @@ volumes:
 ```
 
 ## ownCLoud 
-
 ```yaml
 version: "3"
 
