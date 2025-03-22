@@ -19,5 +19,6 @@
 - 1. [Github Copilot](https://github.com/VSCodium/vscodium/discussions/1487)
  
 # Tools
+### [AppMan](https://github.com/ivan-hc/AM)
 ### micro (lightweight text editor)
 ### [axel](https://github.com/axel-download-accelerator/axel) (cli download accelerator)
