@@ -2,7 +2,7 @@
 - insert hyperlinks
 - add relevant tutorial steps
 - docker compose
-- add boilerplate config files for default apps
+- add config files for default apps
 - https://desec.readthedocs.io/en/latest/quickstart.html subdomains? subdirectories redirecting to subdomains? hmmmm
 - nginx (switch to caddy)
 - ownCloud 
