@@ -1,14 +1,14 @@
 # Todo
-[ ] insert hyperlinks
-[ ] add relevant tutorial steps
-[ ] docker compose
-[ ] add config files for default apps
-[ ] https://desec.readthedocs.io/en/latest/quickstart.html subdomains? subdirectories redirecting to subdomains? hmmmm
-[ ] nginx (switch to caddy)
-[ ] ownCloud 
-[ ] obsidian... logseq? fuck joplin
-[ ] silverbullet
-[ ] tesseract-ocr, html5 canvas (logseq's canvas is nice), training/correction mode window
+- [ ] insert hyperlinks
+- [ ] add relevant tutorial steps
+- [ ] docker compose
+- [ ] add config files for default apps
+- [ ] https://desec.readthedocs.io/en/latest/quickstart.html subdomains? subdirectories redirecting to subdomains? hmmmm
+- [ ] nginx (switch to caddy)
+- [ ] ownCloud 
+- [ ] obsidian... logseq? fuck joplin
+- [ ] silverbullet
+- [ ] tesseract-ocr, html5 canvas (logseq's canvas is nice), training/correction mode window
 # System Guide
 ### [Arch Linux](https://wiki.archlinux.org/title/Installation_guide)
 ### Sway (window manager)
