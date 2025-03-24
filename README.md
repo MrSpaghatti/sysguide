@@ -13,6 +13,7 @@
 ### [Arch Linux](https://wiki.archlinux.org/title/Installation_guide)
 ### Sway (window manager)
 ### foot (terminal emulator)
+- [Error opening terminal: foot.](https://codeberg.org/dnkl/foot/issues/718#issuecomment-264334)
 ### fuzzel (app launcher)
 ### mako (notifation toasts)
 ### waybar (status bar)
