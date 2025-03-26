@@ -7,7 +7,6 @@
 - [ ] nginx (switch to caddy)
 - [ ] ownCloud 
 - [ ] obsidian... logseq? fuck joplin
-- [ ] silverbullet
 - [ ] tesseract-ocr, html5 canvas (logseq's canvas is nice), training/correction mode window
 # System Guide
 ### [Arch Linux](https://wiki.archlinux.org/title/Installation_guide)
