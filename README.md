@@ -29,3 +29,4 @@
 ### micro (lightweight text editor)
 ### [axel](https://github.com/axel-download-accelerator/axel) (cli download accelerator)
 ### [imagemagick](https://imagemagick.org/script/command-line-tools.php) (image converter)
+### [tldr](https://github.com/tldr-pages/tlrc) (easy curated manpages)
