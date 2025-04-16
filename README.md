@@ -28,3 +28,4 @@
 ### [AppMan](https://github.com/ivan-hc/AM) (AppImage Manager)
 ### micro (lightweight text editor)
 ### [axel](https://github.com/axel-download-accelerator/axel) (cli download accelerator)
+### [imagemagick](https://imagemagick.org/script/command-line-tools.php) (image converter)
