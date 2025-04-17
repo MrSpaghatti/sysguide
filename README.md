@@ -30,3 +30,4 @@
 ### [axel](https://github.com/axel-download-accelerator/axel), [aria2c](https://github.com/aria2/aria2) (cli download accelerator)
 ### [imagemagick](https://imagemagick.org/script/command-line-tools.php) (image converter)
 ### [tldr](https://github.com/tldr-pages/tlrc) (easy curated manpages)
+### [ollama](https://ollama.com/download), [llama.cpp](https://github.com/ggml-org/llama.cpp?tab=readme-ov-file) (ai bullshit)
