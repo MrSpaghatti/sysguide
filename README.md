@@ -6,8 +6,8 @@
 - [ ] https://desec.readthedocs.io/en/latest/quickstart.html subdomains? subdirectories redirecting to subdomains? hmmmm
 - [ ] nginx (switch to caddy)
 - [ ] ownCloud 
-- [ ] obsidian... logseq? fuck joplin
-- [ ] tesseract-ocr, html5 canvas (logseq's canvas is nice), training/correction mode window
+- [ ] obsidian... 
+- [ ] tesseract-ocr, html5 canvas (logseq's canvas is nice inspiration), training/correction mode window
 # System Guide
 ### [Arch Linux](https://wiki.archlinux.org/title/Installation_guide)
 ### Sway (window manager)
