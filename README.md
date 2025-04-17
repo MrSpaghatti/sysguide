@@ -19,12 +19,12 @@
 ### [fish](https://fishshell.com/docs/current/index.html) (shell)
 ### firefox (web browser)
 ### thunar (gui file manager)
+
+# Tools
 ### [vscodium](https://github.com/VSCodium/vscodium?tab=readme-ov-file#install-on-arch-linux) (IDE)
 - Theme: [Catpuccin Mocha](https://github.com/catppuccin/vscode)
 - Extensions:
 - 1. [Github Copilot](https://github.com/VSCodium/vscodium/discussions/1487)
- 
-# Tools
 ### [AppMan](https://github.com/ivan-hc/AM) (AppImage Manager)
 ### micro (lightweight text editor)
 ### [axel](https://github.com/axel-download-accelerator/axel), [aria2c](https://github.com/aria2/aria2) (cli download accelerator)
