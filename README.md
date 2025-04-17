@@ -27,6 +27,6 @@
 # Tools
 ### [AppMan](https://github.com/ivan-hc/AM) (AppImage Manager)
 ### micro (lightweight text editor)
-### [axel](https://github.com/axel-download-accelerator/axel) (cli download accelerator)
+### [axel](https://github.com/axel-download-accelerator/axel), [aria2c](https://github.com/aria2/aria2) (cli download accelerator)
 ### [imagemagick](https://imagemagick.org/script/command-line-tools.php) (image converter)
 ### [tldr](https://github.com/tldr-pages/tlrc) (easy curated manpages)
