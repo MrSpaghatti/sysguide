@@ -24,7 +24,9 @@
 ## Networking
 ## Artificial Intelligence
 - [ollama](https://ollama.com/download)
-- [llama.cpp](https://github.com/ggml-org/llama.cpp?tab=readme-ov-file) (ai bullshit)
+- [llama.cpp](https://github.com/ggml-org/llama.cpp?tab=readme-ov-file)
+- [Open-WebUI](https://github.com/open-webui/open-webui)
+- [AnythingLLM](https://github.com/Mintplex-Labs/anything-llm) 
 ## Programming
 ### [vscodium](https://github.com/VSCodium/vscodium?tab=readme-ov-file#install-on-arch-linux) (IDE)
 - Theme: [Catpuccin Mocha](https://github.com/catppuccin/vscode)
@@ -35,7 +37,7 @@
 ## Images
 ### [imagemagick](https://imagemagick.org/script/command-line-tools.php) (image converter)
 ## Files
-### [AppMan](https://github.com/ivan-hc/AM) (AppImage Manager)
+## Apps
+- [AppMan](https://github.com/ivan-hc/AM) (AppImage Manager)
 ### [axel](https://github.com/axel-download-accelerator/axel), [aria2c](https://github.com/aria2/aria2) (cli download accelerator)
 ### [tldr](https://github.com/tldr-pages/tlrc) (easy curated manpages)
-- [Open-WebUI](https://github.com/open-webui/open-webui), [AnythingLLM](https://github.com/Mintplex-Labs/anything-llm) 
