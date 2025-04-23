@@ -2,12 +2,11 @@
 - [ ] insert hyperlinks
 - [ ] add relevant tutorial steps
 - [ ] docker compose
-- [ ] add config files for default apps
-- [ ] https://desec.readthedocs.io/en/latest/quickstart.html subdomains? subdirectories redirecting to subdomains? hmmmm
-- [ ] nginx (switch to caddy)
-- [ ] ownCloud 
-- [ ] obsidian... 
+- [ ] config files
+
+- [ ] obsidian knowledge base organization/management/automation
 - [ ] tesseract-ocr, html5 canvas (logseq's canvas is nice inspiration), training/correction mode window
+- [ ] pangolin replaces fail2ban, nginx, caddy, etc.
 # System Guide
 ### [Arch Linux](https://wiki.archlinux.org/title/Installation_guide)
 ### Sway (window manager)
