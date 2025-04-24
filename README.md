@@ -33,6 +33,7 @@
 - 1. [Github Copilot](https://github.com/VSCodium/vscodium/discussions/1487)
 ## Text
 ### micro (lightweight text editor)
+### [bat](https://github.com/sharkdp/bat)
 ## Images
 ### [imagemagick](https://imagemagick.org/script/command-line-tools.php) (image converter)
 ## Files
