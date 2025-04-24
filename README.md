@@ -23,9 +23,7 @@
 ## Networking
 ## Artificial Intelligence
 - [ollama](https://ollama.com/download)
-- [llama.cpp](https://github.com/ggml-org/llama.cpp?tab=readme-ov-file)
-- [Open-WebUI](https://github.com/open-webui/open-webui)
-- [AnythingLLM](https://github.com/Mintplex-Labs/anything-llm) 
+- [AnythingLLM](https://github.com/Mintplex-Labs/anything-llm)
 ## Programming
 ### [vscodium](https://github.com/VSCodium/vscodium?tab=readme-ov-file#install-on-arch-linux) (IDE)
 - Theme: [Catpuccin Mocha](https://github.com/catppuccin/vscode)
