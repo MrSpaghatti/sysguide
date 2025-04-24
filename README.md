@@ -1,10 +1,10 @@
 # Todo
-- [ ] insert hyperlinks
-- [ ] add relevant tutorial steps
+- [ ] tutorials
 - [ ] docker compose
-- [ ] config files
-
-- [ ] obsidian knowledge base organization/management/automation
+- [ ] configs
+- [x] obsidian
+- [x] syncthing
+- [ ] [Borg](https://borgbackup.readthedocs.io/en/stable/)
 - [ ] tesseract-ocr, html5 canvas (logseq's canvas is nice inspiration), training/correction mode window
 - [ ] pangolin replaces fail2ban, nginx, caddy, etc.
 # System Guide
