@@ -155,38 +155,34 @@ services:
       retries: 3
 ```
 
-### Caddy Reverse Proxy (AI)
+### Caddy Reverse Proxy (official)
 ```yaml
-version: '3.8'
-
 services:
   caddy:
-    image: caddy:latest # Use the latest official Caddy image
-    container_name: caddy_reverse_proxy
+    image: ghcr.io/caddybuilds/caddy-cloudflare:latest
     restart: unless-stopped
+    cap_add:
+      - NET_ADMIN
     ports:
-      # Map standard HTTP/HTTPS ports from host to container
       - "80:80"
       - "443:443"
-      # Map the UDP port for HTTP/3
       - "443:443/udp"
     volumes:
-      # Mount your local Caddyfile into the container
-      # Caddy expects its config file at /etc/caddy/Caddyfile
-      - ./Caddyfile:/etc/caddy/Caddyfile:ro
-
-      # Mount a volume to persist Caddy's state (like TLS certificates)
-      # Caddy stores data in /data
+      - $PWD/Caddyfile:/etc/caddy/Caddyfile
+      - $PWD/site:/srv
       - caddy_data:/data
-
-      # Optional: Mount a volume for Caddy's configuration assets
-      # Caddy uses /config for internal configuration
       - caddy_config:/config
+    environment:
+      - CLOUDFLARE_API_TOKEN=dns_zone_read_write_api_token
+      - ACME_EMAIL=email_used_to_create_certs
+    networks:
+      - proxy_network
 
 volumes:
-  # Define named volumes for persistent data
   caddy_data:
-    driver: local
+    external: true
   caddy_config:
-    driver: local
+networks:
+  proxy_network:
+    # driver: bridge # default bridge is usually fine
 ```
