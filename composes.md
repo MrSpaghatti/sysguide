@@ -154,3 +154,39 @@ services:
       timeout: 10s
       retries: 3
 ```
+
+### Caddy Reverse Proxy (AI)
+```yaml
+version: '3.8'
+
+services:
+  caddy:
+    image: caddy:latest # Use the latest official Caddy image
+    container_name: caddy_reverse_proxy
+    restart: unless-stopped
+    ports:
+      # Map standard HTTP/HTTPS ports from host to container
+      - "80:80"
+      - "443:443"
+      # Map the UDP port for HTTP/3
+      - "443:443/udp"
+    volumes:
+      # Mount your local Caddyfile into the container
+      # Caddy expects its config file at /etc/caddy/Caddyfile
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+
+      # Mount a volume to persist Caddy's state (like TLS certificates)
+      # Caddy stores data in /data
+      - caddy_data:/data
+
+      # Optional: Mount a volume for Caddy's configuration assets
+      # Caddy uses /config for internal configuration
+      - caddy_config:/config
+
+volumes:
+  # Define named volumes for persistent data
+  caddy_data:
+    driver: local
+  caddy_config:
+    driver: local
+```
