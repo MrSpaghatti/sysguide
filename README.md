@@ -21,6 +21,7 @@
 
 # Tools
 ## Networking
+### [Caddyserve](https://caddyserver.com/docs/install#docker) Reverse Proxy
 ## Artificial Intelligence
 - [ollama](https://ollama.com/download)
 - [AnythingLLM](https://github.com/Mintplex-Labs/anything-llm)
