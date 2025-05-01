@@ -186,3 +186,23 @@ networks:
   proxy_network:
     # driver: bridge # default bridge is usually fine
 ```
+
+### Portainer
+```yaml
+version: '3'
+
+services:
+  portainer:
+    image: portainer/portainer-ce:lts
+    container_name: portainer
+    restart: always
+    ports:
+      - "8000:8000"
+      - "9443:9443"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - portainer_data:/data
+
+volumes:
+  portainer_data:
+```
