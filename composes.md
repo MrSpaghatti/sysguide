@@ -187,7 +187,7 @@ networks:
     # driver: bridge # default bridge is usually fine
 ```
 
-### Portainer
+### Portainer (official)
 ```yaml
 version: '3'
 
