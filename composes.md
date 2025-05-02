@@ -206,511 +206,175 @@ Before you begin, ensure you have the following installed:
 Feel free to modify the `docker-compose.yml` and `Caddyfile` to add/remove services, change ports (if not using Caddy for a service), or adjust resource limits. Remember to back up your volumes before making significant changes.
 
 ```yaml
-# Combined Docker Compose file for various services
-# Includes: Ollama, AnythingLLM, OwnCloud (with MariaDB & Redis), SyncThing, Caddy, Portainer
+# Homelab Docker Compose v3.8
+# Purpose: Self-hosted services with Caddy reverse proxy, DDNS via Cloudflare
+# Network Architecture:
+#   - Public services exposed via Caddy (proxy_network)
+#   - Internal services on default network (Ollama, DBs)
+#   - Syncthing uses host networking for better P2P performance
+# Update Strategy: 
+#   - Manual version pinning for stability (update intentionally)
+#   - Backup volumes before updating images
 
 version: '3.8'
 
 services:
-
   # --- AI Services ---
   ollama:
-    image: ollama/ollama:latest
+    image: ollama/ollama:0.1.34  # Pinned version (check for updates quarterly)
     container_name: ollama
-    pull_policy: always
-    tty: true
     restart: unless-stopped
-    # --- GPU Acceleration (Optional - Uncomment/Configure if you have NVIDIA GPU & drivers) ---
-    # deploy:
-    #   resources:
-    #     reservations:
-    #       devices:
-    #         - driver: nvidia
-    #           count: all # Use 'all' or specify a count e.g., 1
-    #           capabilities: [gpu]
-    # environment:
-    #   - NVIDIA_VISIBLE_DEVICES=all
-    #   - NVIDIA_DRIVER_CAPABILITIES=compute,utility
-    # --- End GPU Acceleration ---
+    user: "1000:1000"  # Non-root user (match host UID/GID)
     environment:
-      - OLLAMA_KEEP_ALIVE=24h # Keep models loaded for 24 hours
-    volumes:
-      - ollama_data:/root/.ollama # Ollama models and data persistence
-    ports:
-      - "11434:11434" # Ollama API Port
-    networks:
-      - default_network # Internal communication
-
-  anythingllm:
-    image: mintplexlabs/anythingllm:latest
-    container_name: anythingllm
-    ports:
-      - "3001:3001" # AnythingLLM Web UI Port
-    volumes:
-      - anythingllm_storage:/app/server/storage # Persistent storage for AnythingLLM
-      - anythingllm_hotdir:/app/collector/hotdir # Directory for automatic file ingestion
-    environment:
-      # Connect to Ollama using its service name within the Docker network
-      OLLAMA_BASE_URL: http://ollama:11434
-      STORAGE_DIR: /app/server/storage # Ensure persistence uses the volume
-    depends_on:
-      - ollama
-    restart: unless-stopped
-    networks:
-      - default_network # Internal communication with Ollama
-      - proxy_network # Expose via Caddy
-
-  # --- File Hosting & Sync ---
-  owncloud:
-    image: owncloud/server:latest # Use a specific version in production if needed, e.g., 10.13
-    container_name: owncloud_server
-    restart: unless-stopped
-    ports:
-      # Expose OwnCloud internally on 8080, Caddy will handle external access on 80/443
-      # If you NEED direct host access, uncomment and change the host port (e.g., "8081:8080")
-      # - "8081:8080"
-      - "8080" # Expose port only to other containers (like Caddy) by default
-    depends_on:
-      - owncloud_mariadb
-      - owncloud_redis
-    environment:
-      # --- IMPORTANT: Configure these OwnCloud variables ---
-      - OWNCLOUD_DOMAIN=owncloud.example.com # Replace with your domain, managed by Caddy
-      - OWNCLOUD_TRUSTED_DOMAINS=owncloud.example.com, caddy # Trust Caddy as proxy and the external domain
-      - ADMIN_USERNAME=admin # Replace with your desired admin username
-      - ADMIN_PASSWORD=changeme # Replace with a strong admin password
-      # --- Database & Redis Connection (Uses service names) ---
-      - OWNCLOUD_DB_TYPE=mysql
-      - OWNCLOUD_DB_NAME=owncloud
-      - OWNCLOUD_DB_USERNAME=owncloud
-      - OWNCLOUD_DB_PASSWORD=owncloud # Should match MARIADB_PASSWORD below
-      - OWNCLOUD_DB_HOST=owncloud_mariadb
-      - OWNCLOUD_MYSQL_UTF8MB4=true
-      - OWNCLOUD_REDIS_ENABLED=true
-      - OWNCLOUD_REDIS_HOST=owncloud_redis
-      # --- Caddy Proxy Headers (Essential when behind reverse proxy) ---
-      - OWNCLOUD_OVERWRITEHOST=owncloud.example.com # Your external domain
-      - OWNCLOUD_OVERWRITEPROTOCOL=https # Assuming Caddy handles HTTPS
-      - OWNCLOUD_OVERWRITEWEBROOT=/
-      - OWNCLOUD_OVERWRITECONDADDR=^172\.([1-3][0-9]|4[0-4])\.0\..*$ # Adjust if your proxy network subnet differs significantly
-    healthcheck:
-      test: ["CMD", "/usr/bin/healthcheck"]
-      interval: 30s
-      timeout: 10s
-      retries: 5
-    volumes:
-      - owncloud_files:/mnt/data # User data persistence
-    networks:
-      - default_network # Internal communication with DB/Redis
-      - proxy_network # Expose via Caddy
-
-  owncloud_mariadb:
-    image: mariadb:10.11 # ownCloud recommended version
-    container_name: owncloud_mariadb
-    restart: unless-stopped
-    environment:
-      - MYSQL_ROOT_PASSWORD=changeme_root # Replace with a strong root password
-      - MYSQL_USER=owncloud
-      - MYSQL_PASSWORD=owncloud # Should match OWNCLOUD_DB_PASSWORD above
-      - MYSQL_DATABASE=owncloud
-      - MARIADB_AUTO_UPGRADE=1
-    command: ["--max-allowed-packet=128M", "--innodb-log-file-size=64M"]
-    healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-u", "root", "--password=changeme_root"] # Use the root password set above
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    volumes:
-      - owncloud_mysql_data:/var/lib/mysql # Database persistence
-    networks:
-      - default_network # Internal communication only
-
-  owncloud_redis:
-    image: redis:6 # ownCloud recommended version
-    container_name: owncloud_redis
-    restart: unless-stopped
-    command: ["--databases", "1"]
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    volumes:
-      - owncloud_redis_data:/data # Redis data persistence
-    networks:
-      - default_network # Internal communication only
-
-  syncthing:
-    image: syncthing/syncthing:latest
-    container_name: syncthing
-    hostname: my-syncthing # Optional: Set a hostname for SyncThing UI clarity
-    environment:
-      - PUID=1000 # IMPORTANT: Set to the user ID that owns the host data folders
-      - PGID=1000 # IMPORTANT: Set to the group ID that owns the host data folders
-    volumes:
-      # --- IMPORTANT: Configure these host paths ---
-      # Map Syncthing config directory to host
-      - ./syncthing_config:/var/syncthing/config
-      # Map Syncthing data directory(ies) - add more as needed
-      # Example: Map a 'Documents' folder on the host to /sync/Documents inside the container
-      - ./syncthing_data/Documents:/var/syncthing/Documents
-      # Example: Map a 'Photos' folder
-      # - ./syncthing_data/Photos:/var/syncthing/Photos
-    ports:
-      # Web UI Port (Exposed via Caddy, but can be exposed directly if needed)
-      # - "8384:8384"
-      # Syncing Ports (Essential)
-      - "22000:22000/tcp" # TCP file transfers
-      - "22000:22000/udp" # QUIC file transfers
-      - "21027:21027/udp" # Local discovery broadcasts
-    restart: unless-stopped
-    healthcheck:
-      # Use service name 'localhost' or '127.0.0.1' inside the container
-      test: curl -fkLsS -m 2 http://127.0.0.1:8384/rest/noauth/health | grep -q '"status": "OK"' || exit 1
-      interval: 1m
-      timeout: 10s
-      retries: 3
-    networks:
-      - proxy_network # Expose UI via Caddy
-      # Needs default network if it needs to interact with other non-proxied services,
-      # but primarily needs host access via volumes and network access for sync ports.
-
-  # --- Management & Proxy ---
-  portainer:
-    image: portainer/portainer-ce:lts # Use Long Term Support version
-    container_name: portainer
-    restart: unless-stopped
-    ports:
-      # Portainer Agent port (if needed, rarely used in single-node setup)
-      # - "8000:8000"
-      # Portainer Web UI Port (Exposed via Caddy, but can be exposed directly if needed)
-      - "9443" # Expose port only to other containers (like Caddy) by default
-      # If you NEED direct host access, uncomment and change the host port (e.g., "9444:9443")
-      # - "9444:9443"
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock # Allow Portainer to manage Docker
-      - portainer_data:/data # Portainer configuration persistence
-    networks:
-      - proxy_network # Expose via Caddy
-
-  caddy:
-    # Use a version with cloudflare plugin if you need DNS challenge for wildcard certs etc.
-    # image: ghcr.io/caddybuilds/caddy-cloudflare:latest
-    # Otherwise, use the official image:
-    image: caddy:latest
-    container_name: caddy
-    restart: unless-stopped
-    # Needed for Caddy to bind to low ports 80/443 without running as root (if using non-root user internally)
-    # Also potentially needed for some network operations depending on Caddyfile features.
-    # cap_add:
-    #   - NET_ADMIN
-    #   - NET_BIND_SERVICE
-    ports:
-      - "80:80"   # HTTP Port
-      - "443:443" # HTTPS Port
-      - "443:443/udp" # HTTP/3 QUIC Port
-    volumes:
-      # --- IMPORTANT: Create these files/folders next to docker-compose.yml ---
-      - ./Caddyfile:/etc/caddy/Caddyfile # Mount your Caddyfile configuration
-      # Optional: Mount a directory for serving static files if needed
-      # - ./caddy_site:/srv
-      - caddy_data:/data # Persists Caddy's state including issued certificates
-      - caddy_config:/config # Persists Caddy's configuration backups etc.
-    environment:
-      # --- IMPORTANT: Configure these for ACME DNS Challenge (e.g., Cloudflare) ---
-      # Replace with your actual Cloudflare API Token (scoped appropriately)
-      # - CLOUDFLARE_API_TOKEN=YOUR_CLOUDFLARE_API_TOKEN
-      # Replace with the email address associated with your domain/ACME registration
-      # - ACME_EMAIL=your-email@example.com
-      # Optional: Staging environment for testing ACME without hitting rate limits
-      # - ACME_CA=https://acme-staging-v02.api.letsencrypt.org/directory
-      # --- Caddy config ---
-      - CADDY_CONFIG=/etc/caddy/Caddyfile # Tell Caddy where the config file is
-    networks:
-      - proxy_network # Caddy lives on this network to proxy other services
-
-# --- Volumes Definition ---
-# Define all named volumes used by the services
-volumes:
-  ollama_data:
-    driver: local
-  anythingllm_storage:
-    driver: local
-  anythingllm_hotdir:
-    driver: local
-  owncloud_files:
-    driver: local
-  owncloud_mysql_data:
-    driver: local
-  owncloud_redis_data:
-    driver: local
-  # Syncthing volumes are bind mounts defined directly in the service above
-  # Make sure ./syncthing_config and ./syncthing_data/* exist on the host
-  portainer_data:
-    driver: local
-  caddy_data:
-    driver: local # Persists certificates and other Caddy state
-  caddy_config:
-    driver: local # Persists Caddy configuration
-
-# --- Networks Definition ---
-# Define networks used for communication
-networks:
-  default_network:
-    driver: bridge # Default network for internal service-to-service communication (e.g., web app to DB)
-  proxy_network:
-    driver: bridge # Network for services that Caddy will reverse proxy
-```
-
-```yaml
-# Combined Docker Compose for Self-Hosted Services
-# Manages: Ollama, AnythingLLM, OwnCloud, SyncThing, Portainer, Caddy
-# See README.md for configuration and usage instructions.
-
-version: '3.8'
-
-services:
-
-  # --- AI Services ---
-  ollama:
-    image: ollama/ollama:latest
-    container_name: ollama
-    pull_policy: always
-    tty: true
-    restart: unless-stopped
-    # --- Optional: GPU Acceleration (Requires NVIDIA Container Toolkit) ---
-    # deploy:
-    #   resources:
-    #     reservations:
-    #       devices:
-    #         - driver: nvidia
-    #           count: all
-    #           capabilities: [gpu]
-    # environment:
-    #   - NVIDIA_VISIBLE_DEVICES=all
-    #   - NVIDIA_DRIVER_CAPABILITIES=compute,utility
-    # --- End Optional: GPU Acceleration ---
-    environment:
-      # Keep models loaded, adjust as needed
       - OLLAMA_KEEP_ALIVE=${OLLAMA_KEEP_ALIVE:-24h}
+      - TZ=${TZ:-America/New_York}  # Set in .env
     volumes:
-      # Ollama model data persistence
-      - ollama_data:/root/.ollama
-    ports:
-      # Ollama API port (typically accessed internally or via Caddy)
-      - "11434:11434"
+      - ollama_data:/root/.ollama  # Model storage
     networks:
-      - default_network # Internal communication
+      - default  # Internal-only communication
+    deploy:
+      resources:
+        limits:
+          cpus: '2'  # Dedicate 2 CPU cores
+          memory: 8G   # Limit memory usage
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:11434"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
 
   anythingllm:
-    image: mintplexlabs/anythingllm:latest
+    image: mintplexlabs/anythingllm:1.5.1  # Pinned version
     container_name: anythingllm
     restart: unless-stopped
-    ports:
-      # AnythingLLM Web UI port (exposed via Caddy)
-      - "3001:3001"
+    depends_on:
+      ollama:
+        condition: service_healthy
     volumes:
-      # AnythingLLM persistent storage
       - anythingllm_storage:/app/server/storage
-      # AnythingLLM hot directory for file ingestion
       - anythingllm_hotdir:/app/collector/hotdir
     environment:
-      # Connect to Ollama service within Docker network
-      OLLAMA_BASE_URL: http://ollama:11434
-      # Ensure storage uses the mounted volume
-      STORAGE_DIR: /app/server/storage
-    depends_on:
-      - ollama
+      - OLLAMA_BASE_URL=http://ollama:11434
+      - STORAGE_DIR=/app/server/storage
+      - TZ=${TZ:-America/New_York}
     networks:
-      - default_network # Internal communication with Ollama
-      - proxy_network   # Expose UI via Caddy
+      - default      # Connect to Ollama
+      - proxy_network  # Expose via Caddy
 
-  # --- File Hosting & Sync ---
+  # --- File Services ---
   owncloud:
-    image: owncloud/server:latest # Use a specific version tag in production
+    image: owncloud/server:10.13.0  # LTS version
     container_name: owncloud_server
     restart: unless-stopped
-    ports:
-      # Internal port 8080, exposed via Caddy
-      - "8080"
     depends_on:
-      - owncloud_mariadb
-      - owncloud_redis
+      owncloud_mariadb:
+        condition: service_healthy
+      owncloud_redis:
+        condition: service_healthy
     environment:
-      # --- Required OwnCloud Configuration (Set in .env file) ---
       - OWNCLOUD_DOMAIN=${OWNCLOUD_DOMAIN}
-      - OWNCLOUD_TRUSTED_DOMAINS=${OWNCLOUD_DOMAIN},caddy # Trust Caddy proxy and external domain
+      - OWNCLOUD_TRUSTED_DOMAINS=${OWNCLOUD_DOMAIN}
       - ADMIN_USERNAME=${OWNCLOUD_ADMIN_USERNAME}
       - ADMIN_PASSWORD=${OWNCLOUD_ADMIN_PASSWORD}
-      - OWNCLOUD_DB_PASSWORD=${OWNCLOUD_DB_PASSWORD} # Match DB password
-      # --- Database & Redis Connection ---
-      - OWNCLOUD_DB_TYPE=mysql
-      - OWNCLOUD_DB_NAME=owncloud
-      - OWNCLOUD_DB_USERNAME=owncloud
       - OWNCLOUD_DB_HOST=owncloud_mariadb
-      - OWNCLOUD_MYSQL_UTF8MB4=true
-      - OWNCLOUD_REDIS_ENABLED=true
-      - OWNCLOUD_REDIS_HOST=owncloud_redis
-      # --- Reverse Proxy Configuration ---
-      - OWNCLOUD_OVERWRITEHOST=${OWNCLOUD_DOMAIN}
-      - OWNCLOUD_OVERWRITEPROTOCOL=https
-      - OWNCLOUD_OVERWRITEWEBROOT=/
-      # Adjust regex if your docker network subnet differs significantly from 172.16.0.0/12
-      - OWNCLOUD_OVERWRITECONDADDR=^172\.([1-3][0-9]|4[0-4])\.0\..*$
-    healthcheck:
-      test: ["CMD", "/usr/bin/healthcheck"]
-      interval: 30s
-      timeout: 10s
-      retries: 5
+      - TZ=${TZ:-America/New_York}
     volumes:
-      # User data persistence
       - owncloud_files:/mnt/data
     networks:
-      - default_network # Internal communication with DB/Redis
-      - proxy_network   # Expose UI via Caddy
+      - default
+      - proxy_network
 
   owncloud_mariadb:
-    image: mariadb:10.11 # Recommended version for OwnCloud
+    image: mariadb:10.11.6  # Match ownCloud requirements
     container_name: owncloud_mariadb
     restart: unless-stopped
     environment:
-      # --- Required MariaDB Configuration (Set in .env file) ---
       - MYSQL_ROOT_PASSWORD=${MARIADB_ROOT_PASSWORD}
-      - MYSQL_PASSWORD=${OWNCLOUD_DB_PASSWORD} # Match OwnCloud DB password
-      # --- Standard DB Setup ---
-      - MYSQL_USER=owncloud
-      - MYSQL_DATABASE=owncloud
-      - MARIADB_AUTO_UPGRADE=1
-    command: ["--max-allowed-packet=128M", "--innodb-log-file-size=64M"]
+      - MYSQL_PASSWORD=${OWNCLOUD_DB_PASSWORD}
+      - TZ=${TZ:-America/New_York}
+    volumes:
+      - owncloud_mysql_data:/var/lib/mysql
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-u", "root", "--password=${MARIADB_ROOT_PASSWORD}"]
       interval: 10s
-      timeout: 5s
-      retries: 5
-    volumes:
-      # Database data persistence
-      - owncloud_mysql_data:/var/lib/mysql
-    networks:
-      - default_network # Internal communication only
-
-  owncloud_redis:
-    image: redis:6 # Recommended version for OwnCloud
-    container_name: owncloud_redis
-    restart: unless-stopped
-    command: ["--databases", "1"]
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    volumes:
-      # Redis data persistence
-      - owncloud_redis_data:/data
-    networks:
-      - default_network # Internal communication only
 
   syncthing:
-    image: syncthing/syncthing:latest
+    image: syncthing/syncthing:1.27.7  # Stable version
     container_name: syncthing
-    hostname: my-syncthing # Hostname inside the container network
+    hostname: homelab-syncthing  # Identify in network
     restart: unless-stopped
+    network_mode: host  # Better NAT traversal
     environment:
-      # Set to user/group ID owning host data directories
       - PUID=${SYNCTHING_PUID:-1000}
       - PGID=${SYNCTHING_PGID:-1000}
+      - TZ=${TZ:-America/New_York}
     volumes:
-      # --- Host Path Mounts (Configure paths on host machine) ---
-      # Syncthing config directory
       - ./syncthing_config:/var/syncthing/config
-      # Example data sync directory (map desired host folders)
-      - ./syncthing_data/Documents:/var/syncthing/Documents
-      # Add more volumes for other directories to sync
-      # - ./syncthing_data/Photos:/var/syncthing/Photos
-    ports:
-      # Web UI Port (exposed via Caddy)
-      # - "8384:8384" # Uncomment for direct access if needed
-      # Required Syncing Ports
-      - "22000:22000/tcp" # TCP file transfers
-      - "22000:22000/udp" # QUIC file transfers
-      - "21027:21027/udp" # Local discovery
-    healthcheck:
-      test: curl -fkLsS -m 2 http://127.0.0.1:8384/rest/noauth/health | grep -q '"status": "OK"' || exit 1
-      interval: 1m
-      timeout: 10s
-      retries: 3
-    networks:
-      # Needs host network access implicitly via ports for sync
-      - proxy_network # Expose UI via Caddy
+      - ./syncthing_data:/var/syncthing/Sync
+    deploy:
+      resources:
+        limits:
+          memory: 2G
 
-  # --- Management & Proxy ---
-  portainer:
-    image: portainer/portainer-ce:lts # Long Term Support version
-    container_name: portainer
-    restart: unless-stopped
-    ports:
-      # Portainer Agent port (rarely needed in single-node setup)
-      # - "8000:8000"
-      # Portainer Web UI port (exposed via Caddy)
-      - "9443" # Internal port
-      # - "9444:9443" # Uncomment and change host port for direct access
-    volumes:
-      # Mount Docker socket to allow Portainer control
-      - /var/run/docker.sock:/var/run/docker.sock
-      # Portainer configuration persistence
-      - portainer_data:/data
-    networks:
-      - proxy_network # Expose UI via Caddy
-
+  # --- Infrastructure Services ---
   caddy:
-    # Use official image or one with DNS plugins (e.g., Cloudflare)
-    # image: ghcr.io/caddybuilds/caddy-cloudflare:latest
-    image: caddy:latest
+    image: caddy:2.7.6-alpine  # With Cloudflare DNS support
     container_name: caddy
     restart: unless-stopped
-    # Required for binding low ports (80, 443)
-    cap_add:
-      - NET_BIND_SERVICE
     ports:
-      - "80:80"       # HTTP
-      - "443:443"     # HTTPS
-      - "443:443/udp" # HTTP/3 (QUIC)
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
     volumes:
-      # Mount Caddyfile configuration
       - ./Caddyfile:/etc/caddy/Caddyfile
-      # Optional: Mount site data for static file serving
-      # - ./caddy_site:/srv
-      # Persists Caddy state (certs, etc.)
       - caddy_data:/data
-      # Persists Caddy config backups
       - caddy_config:/config
     environment:
-      # --- Optional: ACME DNS Challenge (Set in .env file if used) ---
-      # - CLOUDFLARE_API_TOKEN=${CLOUDFLARE_API_TOKEN}
-      # - ACME_EMAIL=${ACME_EMAIL}
-      # --- Caddy Config Location ---
-      - CADDY_CONFIG=/etc/caddy/Caddyfile
+      - CADDY_CLOUDFLARE_API_TOKEN=${ACME_CLOUDFLARE_API_TOKEN}
+      - ACME_EMAIL=${ACME_EMAIL}
+      - TZ=${TZ:-America/New_York}
     networks:
-      - proxy_network # Connects to services it proxies
+      - proxy_network
+    cap_add:
+      - NET_BIND_SERVICE
 
-# --- Volumes Definition ---
-# Defines persistent storage areas used by services
+  ddclient:
+    image: linuxserver/ddclient:6.12.0  # Pinned version
+    container_name: ddclient
+    restart: unless-stopped
+    network_mode: host  # Get accurate public IP
+    environment:
+      - DDCLIENT_PROTOCOL=cloudflare
+      - DDCLIENT_LOGIN=${DDCLIENT_CLOUDFLARE_EMAIL}
+      - DDCLIENT_PASSWORD=${DDCLIENT_CLOUDFLARE_API_TOKEN}
+      - TZ=${TZ:-America/New_York}
+    volumes:
+      - ddclient_cache:/config
+
+  portainer:
+    image: portainer/portainer-ce:2.20.2  # LTS version
+    container_name: portainer
+    restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro  # Read-only
+      - portainer_data:/data
+    networks:
+      - proxy_network
+
 volumes:
   ollama_data:
   anythingllm_storage:
   anythingllm_hotdir:
   owncloud_files:
   owncloud_mysql_data:
-  owncloud_redis_data:
   portainer_data:
   caddy_data:
   caddy_config:
-  # Note: syncthing volumes are bind mounts defined directly in the service
+  ddclient_cache:
 
-# --- Networks Definition ---
-# Defines communication channels between services
 networks:
-  default_network: # Internal communication network
+  default:  # Implicit bridge network for internal services
     driver: bridge
-  proxy_network:   # Network for services exposed via Caddy
+  proxy_network:  # Explicit network for reverse-proxied services
     driver: bridge
 ```
