@@ -1,6 +1,6 @@
 # Combined Self-Hosted Services with Docker Compose
 
-This repository provides a unified `docker-compose.yml` file using pinned versions to deploy and manage a collection of self-hosted services. It leverages Caddy for automatic HTTPS and `ddclient` for dynamic DNS updates via Cloudflare.
+This file provides a unified `docker-compose.yml` file using pinned versions to deploy and manage a collection of self-hosted services. It leverages Caddy for automatic HTTPS and `ddclient` for dynamic DNS updates via Cloudflare.
 
 ✨ **Services Included:**
 
