@@ -1,6 +1,6 @@
 # Todo
 - [ ] tutorials
-- [ ] [docker compose](https://github.com/MrSpaghatti/modular-docker-services)
+- [ ] [docker compose](https://github.com/MrSpaghatti/mds)
 - [ ] configs
 - [x] obsidian
 - [x] syncthing
