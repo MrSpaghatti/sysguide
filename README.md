@@ -1,8 +1,6 @@
 # Todo
 - [ ] [docker compose](https://github.com/MrSpaghatti/mds)
 - [ ] configs
-- [x] obsidian
-- [x] syncthing
 # System Guide
 ### [Arch Linux](https://wiki.archlinux.org/title/Installation_guide)
 ### Sway (window manager)
