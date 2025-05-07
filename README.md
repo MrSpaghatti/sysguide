@@ -20,6 +20,8 @@
 ### thunar (gui file manager)
 
 # Tools
+## Online Tools
+### [copilot](https://github.com/copilot)
 ## Networking
 ### [Caddyserve](https://caddyserver.com/docs/install#docker) Reverse Proxy
 ## Artificial Intelligence
