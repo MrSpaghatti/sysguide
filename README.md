@@ -1,12 +1,8 @@
 # Todo
-- [ ] tutorials
 - [ ] [docker compose](https://github.com/MrSpaghatti/mds)
 - [ ] configs
 - [x] obsidian
 - [x] syncthing
-- [ ] [Borg](https://borgbackup.readthedocs.io/en/stable/)
-- [ ] tesseract-ocr, html5 canvas (logseq's canvas is nice inspiration), training/correction mode window
-- [ ] caddy
 # System Guide
 ### [Arch Linux](https://wiki.archlinux.org/title/Installation_guide)
 ### Sway (window manager)
