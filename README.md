@@ -26,6 +26,7 @@
 - Theme: [Catpuccin Mocha](https://github.com/catppuccin/vscode)
 - Extensions:
 - 1. [Github Copilot](https://github.com/VSCodium/vscodium/discussions/1487)
+### [ox](https://github.com/curlpipe/ox?tab=readme-ov-file#linux)
 ## Text
 ### micro (lightweight text editor)
 ### [bat](https://github.com/sharkdp/bat)
