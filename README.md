@@ -33,6 +33,7 @@
 ## Images
 ### [imagemagick](https://imagemagick.org/script/command-line-tools.php) (image converter)
 ## Files
+### [caligula](https://lib.rs/crates/caligula) disk burner
 ## Apps
 - [AppMan](https://github.com/ivan-hc/AM) (AppImage Manager)
 ### [axel](https://github.com/axel-download-accelerator/axel), [aria2c](https://github.com/aria2/aria2) (cli download accelerator)
