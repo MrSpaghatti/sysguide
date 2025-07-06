@@ -10,6 +10,7 @@
 ### mako (notifation toasts)
 ### waybar (status bar)
 ### [fish](https://fishshell.com/docs/current/index.html) (shell)
+### [oh-my-fish](https://github.com/mrshu/oh-my-fish/tree/master)
 ### [brave](https://brave.com) (browser)
 ### thunar (gui file manager)
 
