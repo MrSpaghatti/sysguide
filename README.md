@@ -17,7 +17,7 @@
 *   **[mako](https://github.com/emersion/mako)**: Lightweight notification daemon for Wayland.
 *   **[waybar](https://github.com/Alexays/Waybar)**: Highly customizable Wayland bar for Sway and other WMs.
 *   **[Fish Shell](https://fishshell.com/docs/current/index.html)**: Smart and user-friendly command line shell.
-    *   **[Oh My Fish](https://github.com/oh-my-fish/oh-my-fish)**: Framework for managing Fish shell configuration, plugins, and themes.
+    *   **[Starship](https://starship.rs/)**: Cross-shell prompt that is highly customizable.
 *   **[Brave Browser](https://brave.com)**: Privacy-focused web browser.
 *   **[Thunar](https://docs.xfce.org/xfce/thunar/start)**: Lightweight file manager (often associated with XFCE).
 

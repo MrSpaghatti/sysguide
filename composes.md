@@ -1,508 +1,421 @@
-# Combined Self-Hosted Services with Docker Compose
+# Docker Compose Collection
 
-This document provides a unified `docker-compose.yml` configuration for deploying and managing a collection of self-hosted services. It utilizes pinned image versions for stability, Caddy for automatic HTTPS via reverse proxy, and `ddclient` for dynamic DNS updates through Cloudflare.
+This document is intended to be a collection of individual, officially sourced (where possible) Docker Compose files or snippets for various useful tools and services. Each entry should include:
 
-## ✨ Services Included
-
-*   **Ollama:** Run large language models locally.
-*   **AnythingLLM:** A private RAG (Retrieval Augmented Generation) solution that can utilize Ollama.
-*   **OwnCloud:** File hosting and sharing platform (includes MariaDB as its database).
-    *   > **Note:** Redis caching is omitted in this specific configuration for simplicity but is recommended for better performance in a production setup.
-*   **SyncThing:** Continuous, decentralized file synchronization.
-    *   > **Note:** Uses host networking for improved discovery.
-*   **Portainer CE:** Management UI for Docker environments.
-*   **Caddy:** Automatic HTTPS reverse proxy.
-    *   > **Note:** Configured for Cloudflare DNS challenge, which may require a specific Caddy image build that includes the Cloudflare plugin.
-*   **ddclient:** Dynamic DNS updater for Cloudflare.
-    *   > **Note:** Uses host networking to accurately detect the public IP address.
+*   A brief description of the tool/service.
+*   A link to the official documentation or source of the Docker Compose example.
+*   The `docker-compose.yml` content.
+*   Key setup notes or essential environment variables.
 
 ---
 
-## ⚠️ Important Notes and Changes
+## Portainer CE
 
-*   **Image Pinning:** Most services are pinned to specific image versions to ensure stability and predictability. It is crucial to schedule regular checks for security updates and new versions for these images.
-*   **Host Networking:** `SyncThing` and `ddclient` are configured with `network_mode: host`. This allows them better network discovery (Syncthing) or accurate IP detection (ddclient) but reduces container isolation and means Caddy must proxy `Syncthing` via `localhost` rather than a container network alias.
-*   **Caddy & Cloudflare DNS Challenge:** This setup assumes the use of Cloudflare's DNS challenge for obtaining SSL certificates with Caddy. The standard `caddy:alpine` image **does not** include the necessary Cloudflare DNS plugin by default. Refer to Configuration Step 4 for details on using a compatible image.
-*   **OwnCloud Reverse Proxy Configuration:** Redis is not included in this version. For OwnCloud to operate correctly behind Caddy, essential environment variables related to reverse proxying (e.g., `OWNCLOUD_OVERWRITE*`) must be configured in the `owncloud` service definition within the `docker-compose.yml` file.
+**Description:** Portainer Community Edition (CE) is a lightweight service delivery platform for containerized applications that can be used to manage Docker, Docker Swarm, Kubernetes, and ACI environments. It provides a simple and intuitive web UI.
 
----
+**Source:** [Official Portainer CE Docker Installation Documentation](https://docs.portainer.io/start/install-ce/server/docker/linux)
 
-## Prerequisites
-
-1.  **Docker Engine:** [Install Docker](https://docs.docker.com/engine/install/)
-2.  **Docker Compose:** [Install Docker Compose](https://docs.docker.com/compose/install/)
-3.  **Cloudflare Account & Domain:** A domain name managed through Cloudflare.
-4.  **Cloudflare API Token (for ddclient):** Requires `Zone:DNS:Edit` permissions for your domain's zone. [How to create a Cloudflare API token](https://developers.cloudflare.com/fundamentals/api/reference/create-token/).
-5.  **Cloudflare API Token (for Caddy ACME DNS Challenge):** If using the DNS challenge with Caddy, a separate API token might be needed, typically scoped with `Zone:DNS:Read` and `Zone:Zone:Read` permissions.
-6.  **Host Directories:** Specific directories must be created on the host machine for persistent data and configuration (detailed in the Configuration section).
-7.  **(Optional) NVIDIA Docker Toolkit:** Required if you intend to use GPU acceleration for Ollama. Relevant sections in the `docker-compose.yml` will need to be uncommented.
-
----
-
-## ⚙️ Configuration Steps
-
-**Critical:** Review and customize all configurations *before* attempting to start the services with `docker-compose up`.
-
-### 1. Obtain Files
-Clone the repository or manually create the `docker-compose.yml`, `Caddyfile`, and `.env` file structure locally.
-
-### 2. Create `.env` File
-In the same directory as your `docker-compose.yml`, create a file named `.env`. This file will store sensitive information and environment-specific settings.
-**Never commit this file to version control (e.g., Git).**
-
-```dotenv
-# .env
-
-# === General Settings ===
-# Specify your local timezone (e.g., America/New_York, Europe/London)
-# List of timezones: https://en.wikipedia.org/wiki/List_of_tz_database_time_zones
-TZ=America/New_York
-
-# === OwnCloud Configuration ===
-# Your external domain for OwnCloud (e.g., cloud.yourdomain.com)
-OWNCLOUD_DOMAIN=owncloud.example.com
-# Administrator credentials for OwnCloud
-OWNCLOUD_ADMIN_USERNAME=admin
-OWNCLOUD_ADMIN_PASSWORD=changeme_secure_owncloud_admin_password
-# Database password for OwnCloud (must match MARIADB_PASSWORD below)
-OWNCLOUD_DB_PASSWORD=changeme_secure_owncloud_db_password
-# Root password for the MariaDB instance
-MARIADB_ROOT_PASSWORD=changeme_secure_mariadb_root_password
-
-# === SyncThing Configuration ===
-# User ID (PUID) and Group ID (PGID) for Syncthing container.
-# These should match the owner of the host directories mapped to Syncthing.
-# Use `id -u` and `id -g` on your host to find appropriate values.
-SYNCTHING_PUID=1000
-SYNCTHING_PGID=1000
-
-# === Caddy Configuration ===
-# Email address for Let's Encrypt registration and notifications
-ACME_EMAIL=your-email@example.com
-# Cloudflare API Token for Caddy's DNS challenge (if using a Caddy image with the Cloudflare plugin)
-# The environment variable name (here CLOUDFLARE_API_TOKEN) must match what the Caddy plugin expects.
-CLOUDFLARE_API_TOKEN=YOUR_CADDY_ACME_CLOUDFLARE_API_TOKEN
-
-# === ddclient Configuration (Dynamic DNS) ===
-# Your Cloudflare account login email address
-DDCLIENT_CLOUDFLARE_EMAIL=your-cloudflare-login-email@example.com
-# Your Cloudflare API Token (must have Zone:DNS:Edit permissions for the specified zone)
-DDCLIENT_CLOUDFLARE_API_TOKEN=YOUR_DDCLIENT_DNS_EDIT_CLOUDFLARE_API_TOKEN
-# The Cloudflare Zone name (e.g., yourdomain.com)
-DDCLIENT_CLOUDFLARE_ZONE=example.com
-# Comma-separated list of DNS records within the zone to update (e.g., "@,www,cloud,sync")
-# This should include ALL hostnames managed by Caddy, and potentially the root record (@).
-DDCLIENT_CLOUDFLARE_RECORDS=owncloud,syncthing,portainer,anythingllm
-
-# === Ollama Configuration (Optional) ===
-# Duration Ollama keeps models loaded in memory (e.g., 24h, 1h, 5m)
-OLLAMA_KEEP_ALIVE=24h
-```
-After creating the `.env` file, set restrictive permissions:
-```bash
-chmod 600 .env
-```
-
-### 3. Prepare Host Directories
-Create the necessary directories on your host machine. These paths are relative to your `docker-compose.yml` file.
-```bash
-mkdir -p ./syncthing_config
-mkdir -p ./syncthing_data # This will be mapped to /var/syncthing/Sync inside the Syncthing container
-# Create other subdirectories for Syncthing data if you plan to map them explicitly.
-```
-Ensure that the ownership of `./syncthing_config` and `./syncthing_data` (and any other Syncthing data directories) matches the `SYNCTHING_PUID` and `SYNCTHING_PGID` specified in your `.env` file. You can use `sudo chown -R $USER:$USER ./syncthing_config ./syncthing_data` if your current user's UID/GID matches, or `sudo chown -R 1000:1000 ./syncthing_config ./syncthing_data` if using UID/GID 1000.
-
-### 4. Configure Caddy
-
-*   **(IMPORTANT) Choose the Correct Caddy Image:**
-    *   **If using Cloudflare DNS Challenge:** You *must* use a Caddy image that includes the Cloudflare DNS plugin. The standard `caddy:alpine` or `caddy:latest` images likely do **not** have it. Change `image: caddy:2.7.6-alpine` in `docker-compose.yml` to a specialized build, for example: `image: ghcr.io/caddy-dns/cloudflare:latest` or a version-pinned equivalent like `image: ghcr.io/caddybuilds/caddy-cloudflare:2.7.6`. Verify the exact image name and tag from a trusted source for Caddy builds with DNS plugins. Ensure the `CLOUDFLARE_API_TOKEN` variable name in your `.env` file and the `caddy` service's environment section in `docker-compose.yml` matches the one expected by the plugin (usually `CLOUDFLARE_API_TOKEN`).
-    *   **If NOT using Cloudflare DNS Challenge:** You can use the standard `caddy:<version>-alpine` image. Remove the `CLOUDFLARE_API_TOKEN` (or similarly named) environment variable from the `caddy` service definition in `docker-compose.yml`. Caddy will then attempt certificate acquisition using HTTP or TLS-ALPN challenges, which require ports 80/443 to be directly accessible from the internet.
-
-*   **Create `Caddyfile`:**
-    Create a `Caddyfile` in the same directory as `docker-compose.yml`. **Replace all placeholder values (like `yourdomain.com`) with your actual domain information.**
-
-    ```caddy
-    # Caddyfile
-    # This path should be relative to where you run docker-compose,
-    # or an absolute path if preferred and mounted correctly.
-
-    {
-        email {$ACME_EMAIL}
-        # Optional: Uncomment for testing against Let's Encrypt's staging environment
-        # to avoid rate limits on the production CA.
-        # acme_ca https://acme-staging-v02.api.letsencrypt.org/directory
-
-        # Optional: Enable DNS Challenge if using a Caddy image with the Cloudflare plugin.
-        # Ensure the environment variable {$CLOUDFLARE_API_TOKEN} is correctly passed from .env.
-        # acme_dns cloudflare {$CLOUDFLARE_API_TOKEN}
-    }
-
-    # --- Service Definitions ---
-    # Replace *.yourdomain.com with your actual hostnames.
-    # These hostnames should correspond to the records listed in DDCLIENT_CLOUDFLARE_RECORDS in your .env file.
-
-    # Portainer (Accessible via proxy_network)
-    portainer.yourdomain.com {
-        reverse_proxy portainer:9443
-    }
-
-    # OwnCloud (Accessible via proxy_network)
-    # Ensure OWNCLOUD_DOMAIN in .env matches the hostname used here.
-    owncloud.yourdomain.com {
-        # Required headers for OwnCloud behind a reverse proxy.
-        # Always verify these against the latest OwnCloud documentation.
-        header_up X-Real-IP {remote_host}
-        header_up X-Forwarded-For {remote_host}
-        header_up X-Forwarded-Host {host}
-        header_up X-Forwarded-Proto {scheme}
-        # The following might also be needed depending on your OwnCloud version and setup:
-        # header_up X-Forwarded-Port {server_port}
-
-        reverse_proxy owncloud:8080
-
-        # Add well-known redirects for CalDAV/CardDAV if needed, e.g.:
-        # redir /.well-known/carddav /remote.php/dav 301
-        # redir /.well-known/caldav /remote.php/dav 301
-    }
-
-    # SyncThing (Uses host networking)
-    # Caddy proxies to localhost because Syncthing binds directly to the host's port.
-    syncthing.yourdomain.com {
-        reverse_proxy localhost:8384 # <-- IMPORTANT: Syncthing is on the host network
-    }
-
-    # AnythingLLM (Accessible via proxy_network)
-    anythingllm.yourdomain.com {
-        reverse_proxy anythingllm:3001
-    }
-
-    # Ollama API (Optional - on default network, proxied via Caddy)
-    # If you expose the Ollama API externally, SECURE IT!
-    # ollama.yourdomain.com {
-    #    # Example: Basic Authentication (replace user and hashed_password)
-    #    # basicauth {
-    #    #    user JDJhJDEwJExqWER....
-    #    # }
-    #    reverse_proxy ollama:11434
-    # }
-    ```
-
-### 5. Review OwnCloud Specific Configuration
-*   **Add Redis (Recommended for Production):** For improved performance, consider adding a Redis service to your `docker-compose.yml` and configuring the necessary OwnCloud environment variables (e.g., `OWNCLOUD_REDIS_ENABLED=true`, `OWNCLOUD_REDIS_HOST=redis_service_name`). This is omitted here for simplicity.
-*   **Add `OWNCLOUD_OVERWRITE*` Variables:** Ensure the following environment variables are present in the `owncloud` service definition within `docker-compose.yml`. Adjust the `OWNCLOUD_OVERWRITECONDADDR` regex if your Docker network's IP range differs. This regex is typically for networks like `172.17.0.0/16` through `172.31.0.0/16`.
-    ```yaml
-      environment:
-        # ... other OwnCloud variables
-        - OWNCLOUD_OVERWRITEHOST=${OWNCLOUD_DOMAIN}
-        - OWNCLOUD_OVERWRITEPROTOCOL=https
-        - OWNCLOUD_OVERWRITEWEBROOT=/
-        # This regex allows requests from Caddy's Docker network.
-        # Adjust if your proxy network uses a different range.
-        - OWNCLOUD_OVERWRITECONDADDR=^172\.([1-3][0-9]|4[0-4])\.0\..*$
-        # ... other OwnCloud variables
-    ```
-*   **Add Other Database Variables (Optional but Recommended):** For clarity and to avoid reliance on defaults, explicitly add all database connection variables to the `owncloud` service:
-    ```yaml
-      environment:
-        # ...
-        - OWNCLOUD_DB_TYPE=mysql
-        - OWNCLOUD_DB_HOST=owncloud_mariadb # Service name of MariaDB container
-        - OWNCLOUD_DB_NAME=owncloud         # Default DB name
-        - OWNCLOUD_DB_USERNAME=owncloud     # Default DB user
-        - OWNCLOUD_DB_PASSWORD=${OWNCLOUD_DB_PASSWORD} # From .env
-        # ...
-    ```
-
-### 6. (Optional) Enable GPU for Ollama
-If you have an NVIDIA GPU and have set up the NVIDIA Docker Toolkit, uncomment the `deploy` section under the `ollama` service in `docker-compose.yml` to enable GPU acceleration.
-
----
-
-## 🚀 Usage Instructions
-
-### 1. Start Services
-Navigate to the directory containing your `docker-compose.yml` file and run:
-```bash
-docker-compose up -d
-```
-The `-d` flag runs the containers in detached mode (in the background).
-
-### 2. Verify `ddclient` Operation
-Check the logs for `ddclient` to ensure it's successfully updating your Cloudflare DNS records:
-```bash
-docker-compose logs -f ddclient
-```
-Look for messages indicating successful connection to Cloudflare and updates for your specified records.
-
-### 3. Access Services
-Once DNS propagation is complete (which can take a few minutes), you should be able to access your services via the hostnames configured in your `Caddyfile` (e.g., `https://owncloud.yourdomain.com`). Caddy will handle automatic HTTPS.
-
-### 4. View Logs
-To view logs for all running services:
-```bash
-docker-compose logs -f
-```
-To view logs for a specific service (e.g., `caddy`):
-```bash
-docker-compose logs -f caddy
-```
-
-### 5. Stop Services
-To stop and remove the containers, networks, and (optionally) volumes:
-```bash
-docker-compose down
-```
-> **Warning:** To also remove named volumes (which will delete persistent data for services like Ollama, OwnCloud, etc.), use:
-> `docker-compose down -v`
-> **Use this with extreme caution as it leads to data loss if not intended.**
-
----
-
-## 💾 Volumes and Data Persistence
-
-*   **Named Volumes:** Services like `ollama` (`ollama_data`), `portainer` (`portainer_data`), `owncloud` (`owncloud_files`, `owncloud_mysql_data`), etc., use named Docker volumes. These volumes persist data even if containers are removed and recreated, unless explicitly deleted (e.g., with `docker-compose down -v` or `docker volume rm <volume_name>`).
-*   **Bind Mounts:** Configurations like `./syncthing_config`, `./syncthing_data`, and `./Caddyfile` are bind mounts. These link directories or files from your host machine directly into the containers. Data in bind mounts persists on the host.
-
----
-
-## 🌐 Networking Overview
-
-*   **`host` Network:** Used by `ddclient` and `Syncthing`. This gives them direct access to the host's network interfaces, which is beneficial for IP detection (`ddclient`) and peer-to-peer discovery (`Syncthing`).
-*   **`default` Network:** An internal Docker bridge network automatically created by Compose. Backend services like `ollama` and `owncloud_mariadb` primarily use this for communication among themselves, not typically exposed externally except through the proxy.
-*   **`proxy_network` Network:** An explicitly defined Docker bridge network. Caddy is connected to this network, as are the frontend services it reverse proxies (e.g., `portainer`, `anythingllm`, `owncloud`). This allows Caddy to route traffic to these services using their service names as hostnames.
-
----
-
-## Customization Notes
-
-Feel free to adapt the `docker-compose.yml`, `.env`, and `Caddyfile` to your specific requirements. Remember to:
-*   Regularly back up your persistent data (named volumes and important bind mounts).
-*   Schedule checks for updates to the pinned Docker image versions and test updates in a non-production environment if possible.
-
----
-<!-- Note: The docker-compose.yml content is below this line -->
+**Docker Compose (`docker-compose.yml`):**
 ```yaml
-# Homelab Docker Compose Configuration
-# Version: 3.8
-#
-# Purpose: Manages a suite of self-hosted services, utilizing Caddy for
-#          reverse proxying with automatic HTTPS and ddclient for dynamic DNS
-#          updates via Cloudflare.
-#
-# Network Strategy:
-#   - Publicly accessible services are exposed through Caddy via the 'proxy_network'.
-#   - Backend/internal services (like databases, Ollama) communicate on the 'default' Docker network.
-#   - Syncthing and ddclient use 'network_mode: host' for optimal P2P performance and
-#     accurate public IP detection, respectively.
-#
-# Image Update Strategy:
-#   - Images are pinned to specific versions for stability and predictable deployments.
-#   - Manual checks for updates should be performed periodically (e.g., quarterly).
-#   - Always back up persistent volumes before upgrading image versions.
-
 version: '3.8'
 
 services:
-  # --- Artificial Intelligence Services ---
-  ollama:
-    image: ollama/ollama:0.1.34  # Pinned version - check for updates
-    container_name: ollama
-    restart: unless-stopped
-    user: "1000:1000"  # Recommended: Run as non-root; match host UID/GID for volume permissions
-    environment:
-      - OLLAMA_KEEP_ALIVE=${OLLAMA_KEEP_ALIVE:-24h} # Time to keep models loaded
-      - TZ=${TZ:-America/New_York}                 # Timezone from .env
+  portainer:
+    image: portainer/portainer-ce:lts # Using Long Term Support tag, can be 'latest'
+    container_name: portainer
+    ports:
+      - "8000:8000" # Optional: For Edge Agent tunnel server
+      - "9443:9443" # Main UI port (HTTPS)
+      # - "9000:9000" # Optional: Legacy HTTP port
     volumes:
-      - ollama_data:/root/.ollama  # Stores downloaded models and data
-    networks:
-      - default  # Primarily for internal access, e.g., from AnythingLLM
-    # deploy: # Optional: Uncomment for GPU acceleration (NVIDIA)
+      - /var/run/docker.sock:/var/run/docker.sock
+      - portainer_data:/data
+    restart: always
+
+volumes:
+  portainer_data:
+```
+
+**Key Setup Notes:**
+*   **Access:** The Portainer Server UI will be available at `https://<your-host-ip>:9443`.
+*   **Initial Setup:** On first access, you will be prompted to create an admin user and password.
+*   **Docker Socket:** The line `-v /var/run/docker.sock:/var/run/docker.sock` is crucial for Portainer to manage your Docker environment. Ensure this path is correct for your system (it's standard for Linux).
+*   **Persistent Data:** Portainer's data (configurations, user settings, etc.) is stored in the named Docker volume `portainer_data`.
+*   **Ports:**
+    *   `9443` is the default HTTPS port for the UI.
+    *   `8000` is used for the optional Edge Agent tunnel server. If you don't plan to use Edge Agents, you can omit this port mapping.
+    *   The documentation mentions a legacy `9000` HTTP port, which can be added if needed but HTTPS on `9443` is recommended.
+*   **Image Tag:** The example uses `portainer/portainer-ce:lts` for the Long Term Support version. You can use `portainer/portainer-ce:latest` to get the newest features, but `lts` is generally more stable for production-like environments.
+*   **SELinux:** If SELinux is enabled on your host, you might need to run the container with the `--privileged` flag or configure appropriate SELinux policies. The official documentation usually provides guidance on this.
+
+---
+
+## Caddy
+
+**Description:** Caddy is a powerful, enterprise-ready, open-source web server with automatic HTTPS. It's known for its ease of use and modern features.
+
+**Source:** [Caddy Docker Hub Page](https://hub.docker.com/_/caddy) (Primary source for image info) and [Caddy Docker Documentation](https://caddyserver.com/docs/running#docker)
+
+**Docker Compose (`docker-compose.yml`):**
+```yaml
+version: '3.8'
+
+services:
+  caddy:
+    image: caddy:latest # Or a specific version e.g., caddy:2.7-alpine
+    container_name: caddy
+    ports:
+      - "80:80"    # For HTTP
+      - "443:443"  # For HTTPS
+      - "443:443/udp" # For HTTP/3
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile   # Mount your Caddyfile
+      - caddy_data:/data                   # For SSL certificates and other Caddy data
+      - caddy_config:/config               # For Caddy's operational configuration
+    restart: unless-stopped
+    # Optional: Add network_mode or networks if integrating with other services
+    # networks:
+    #   - my_proxy_network
+
+volumes:
+  caddy_data:
+  caddy_config:
+
+# Optional: Define a shared network if Caddy will proxy other containers
+# networks:
+#   my_proxy_network:
+#     driver: bridge
+```
+
+**Key Setup Notes:**
+*   **Caddyfile:**
+    *   You **must** create a `Caddyfile` in the same directory as your `docker-compose.yml` (or adjust the volume path). This file defines how Caddy serves your sites.
+    *   **Example `Caddyfile`:**
+        ```caddy
+        yourdomain.com {
+            respond "Hello, world!"
+        }
+
+        # To reverse proxy another Docker container on the same Docker network:
+        # (Assuming the other service is named 'myservice' and is on 'my_proxy_network')
+        # service.yourdomain.com {
+        #     reverse_proxy myservice:service_port
+        # }
+        ```
+*   **Persistent Data:**
+    *   `caddy_data` volume: Stores SSL/TLS certificates obtained by Caddy. Crucial for persistence so certs aren't re-fetched on every restart.
+    *   `caddy_config` volume: Stores Caddy's internal configuration and state.
+*   **Ports:**
+    *   `80:80` and `443:443` are standard for web traffic (HTTP and HTTPS). Caddy will automatically handle HTTP to HTTPS redirection.
+    *   `443:443/udp` is for enabling HTTP/3.
+*   **Image Tag:**
+    *   `caddy:latest` will use the latest stable version.
+    *   For production, it's often recommended to pin to a specific version tag (e.g., `caddy:2.7.6` or `caddy:2.7-alpine` for a smaller image).
+*   **Networking:**
+    *   If Caddy is intended to reverse proxy other Docker containers, they should all be on the same Docker network. You can define a network in your compose file (like `my_proxy_network` in the commented-out example) and attach Caddy and your other services to it.
+*   **Automatic HTTPS:** Caddy automatically provisions and renews SSL certificates from Let's Encrypt (and other CAs) for any site defined with a domain name in your `Caddyfile`. Ensure your domain's DNS A/AAAA records point to the server running Caddy.
+*   **Custom Caddy Builds (with plugins):** If you need Caddy plugins (e.g., for specific DNS providers for the DNS challenge), you'll need to use a custom Caddy image or build your own. The official `caddy` image is vanilla. For example, for Cloudflare DNS challenge: `image: ghcr.io/caddy-dns/cloudflare`.
+
+---
+
+## ddclient
+
+**Description:** ddclient is a Perl client used to update dynamic DNS entries for accounts on various dynamic DNS service providers. It can fetch your WAN IP address in several ways and supports many popular services. This example is based on the LinuxServer.io image.
+
+**Source:** [LinuxServer.io ddclient Documentation](https://docs.linuxserver.io/images/docker-ddclient) and [ddclient Official Website](https://ddclient.net/)
+
+**Docker Compose (`docker-compose.yml`):**
+```yaml
+version: '3.8'
+
+services:
+  ddclient:
+    image: lscr.io/linuxserver/ddclient:latest
+    container_name: ddclient
+    environment:
+      - PUID=1000 # Your user ID
+      - PGID=1000 # Your group ID
+      - TZ=Etc/UTC # Your timezone, e.g., America/New_York
+    volumes:
+      - ./ddclient_config:/config # Path to store ddclient.conf and cache
+    restart: unless-stopped
+    # For ddclient to accurately detect the public IP, host networking can be beneficial,
+    # especially if it's running on the same machine as your router or modem.
+    # However, it can often work without it by using web-based IP checkers.
+    # network_mode: host # Uncomment if needed, be aware of port conflicts.
+```
+
+**Key Setup Notes:**
+*   **Configuration (`ddclient.conf`):**
+    *   You **must** create a `ddclient.conf` file inside the host directory mapped to `/config` (e.g., `./ddclient_config/ddclient.conf`).
+    *   This file contains the configuration for your dynamic DNS provider(s).
+    *   The LinuxServer.io image will automatically restart `ddclient` if it detects changes to this file.
+    *   **Example for Cloudflare (`./ddclient_config/ddclient.conf`):**
+        ```ini
+        # ddclient.conf for Cloudflare
+        daemon=300                            # Check every 300 seconds (5 minutes)
+        syslog=yes                            # Log to syslog
+        #mail=root                            # Mail all msgs to root
+        #mail-failure=root                    # Mail failed updates to root
+        pid=/var/run/ddclient.pid             # Record PID in file.
+        ssl=yes                               # Use SSL/TLS.
+        use=web, web=checkip.dyndns.org       # Get IP from web, using dyndns' checker
+        #use=if, if=eth0                      # Get IP from interface eth0 (replace if needed)
+
+        # Cloudflare specific configuration
+        protocol=cloudflare
+        login=your-cloudflare-email@example.com
+        password=YOUR_CLOUDFLARE_GLOBAL_API_KEY_OR_API_TOKEN # Use a scoped API Token if possible
+        zone=yourdomain.com
+        records=subdomain1,subdomain2,@       # Comma separated hostnames to update. '@' for root domain.
+        # proxied=true                        # Optional: Set to true to enable Cloudflare proxy (orange cloud)
+        ```
+*   **Cloudflare API Token vs. Global API Key:**
+    *   It is **highly recommended** to use a Cloudflare API Token with specific permissions (`Zone:DNS:Edit` for the relevant zone) instead of your Global API Key for better security.
+    *   If using an API Token, the `login` field in `ddclient.conf` is typically your Cloudflare account email, and `password` is the API Token itself. Some configurations might vary, so check ddclient's official documentation for Cloudflare if you encounter issues.
+*   **PUID/PGID:** Set `PUID` and `PGID` to the user and group ID that should own the configuration files on the host. Use `id $(whoami)` to find your current user's IDs.
+*   **Timezone (TZ):** Set your correct [timezone](https://en.wikipedia.org/wiki/List_of_tz_database_time_zones).
+*   **Volume Mapping:** The `./ddclient_config:/config` line maps a directory from your host to the container for persistent configuration and cache. Create this directory on your host.
+*   **Network Mode:**
+    *   The example compose file comments out `network_mode: host`. `ddclient` often needs to determine your public IP. It can do this via web services (like `use=web, web=checkip.dyndns.org`).
+    *   If it has trouble, or if you prefer it to use the host's network directly (e.g., if it's on your router or a machine with a direct public IP), you can uncomment `network_mode: host`. Be mindful this gives the container more network privileges and direct access to host ports.
+*   **Official ddclient Documentation:** For detailed configuration options for various providers and advanced setups, refer to the [official ddclient documentation](https://ddclient.net/protocols.html).
+
+---
+
+## Ollama
+
+**Description:** Ollama is a tool for running large language models (LLMs) locally. It provides a simple API and command-line interface to download, manage, and run models like Llama 2, Code Llama, and others.
+
+**Source:** [Ollama Docker Hub](https://hub.docker.com/r/ollama/ollama) and [Ollama GitHub Repository](https://github.com/ollama/ollama) (often contains Docker examples or links to them).
+
+**Docker Compose (`docker-compose.yml`):**
+```yaml
+version: '3.8'
+
+services:
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ollama
+    ports:
+      - "11434:11434" # Ollama API port
+    volumes:
+      - ollama_data:/root/.ollama # Persistent storage for models
+    restart: unless-stopped
+    # --- Optional: GPU Acceleration (NVIDIA) ---
+    # Ensure you have the NVIDIA Docker Toolkit installed on your host.
+    # Then, uncomment the following 'deploy' section.
+    # deploy:
     #   resources:
     #     reservations:
     #       devices:
     #         - driver: nvidia
-    #           count: 1
+    #           count: all # Or specify specific GPU IDs e.g., "device=0,1"
     #           capabilities: [gpu]
-    #     limits: # Optional: Resource limits
-    #       cpus: '2'
-    #       memory: 8G
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:11434"]
-      interval: 30s
-      timeout: 5s
-      retries: 3
-
-  anythingllm:
-    image: mintplexlabs/anythingllm:1.5.1  # Pinned version - check for updates
-    container_name: anythingllm
-    restart: unless-stopped
-    depends_on:
-      ollama:
-        condition: service_healthy # Wait for Ollama to be ready
-    volumes:
-      - anythingllm_storage:/app/server/storage # Persistent storage for AnythingLLM
-      - anythingllm_hotdir:/app/collector/hotdir # Directory for document ingestion
-    environment:
-      - OLLAMA_BASE_URL=http://ollama:11434 # Internal URL to Ollama service
-      - STORAGE_DIR=/app/server/storage
-      - TZ=${TZ:-America/New_York}
-    networks:
-      - default       # For communication with Ollama
-      - proxy_network # To be exposed via Caddy
-
-  # --- File Hosting and Synchronization Services ---
-  owncloud:
-    image: owncloud/server:10.13.0  # Pinned LTS version - check for updates
-    container_name: owncloud_server
-    restart: unless-stopped
-    depends_on:
-      owncloud_mariadb:
-        condition: service_healthy
-      # owncloud_redis: # Uncomment if Redis is added
-      #   condition: service_healthy
-    environment:
-      - OWNCLOUD_DOMAIN=${OWNCLOUD_DOMAIN} # External domain from .env
-      - OWNCLOUD_TRUSTED_DOMAINS=${OWNCLOUD_DOMAIN} # Trust the external domain
-      - ADMIN_USERNAME=${OWNCLOUD_ADMIN_USERNAME} # Admin user from .env
-      - ADMIN_PASSWORD=${OWNCLOUD_ADMIN_PASSWORD} # Admin password from .env
-      - OWNCLOUD_DB_TYPE=mysql
-      - OWNCLOUD_DB_HOST=owncloud_mariadb
-      - OWNCLOUD_DB_NAME=owncloud
-      - OWNCLOUD_DB_USERNAME=owncloud
-      - OWNCLOUD_DB_PASSWORD=${OWNCLOUD_DB_PASSWORD}
-      - OWNCLOUD_OVERWRITEHOST=${OWNCLOUD_DOMAIN} # For reverse proxy
-      - OWNCLOUD_OVERWRITEPROTOCOL=https     # For reverse proxy
-      - OWNCLOUD_OVERWRITEWEBROOT=/          # For reverse proxy
-      - OWNCLOUD_OVERWRITECONDADDR=^172\.([1-3][0-9]|4[0-4])\.0\..*$ # Adjust regex if proxy network differs
-      - TZ=${TZ:-America/New_York}
-      # - OWNCLOUD_REDIS_ENABLED=true # Uncomment if Redis is added
-      # - OWNCLOUD_REDIS_HOST=owncloud_redis # Uncomment if Redis is added
-    volumes:
-      - owncloud_files:/mnt/data # User files and application data
-    networks:
-      - default       # For database connection
-      - proxy_network # To be exposed via Caddy
-
-  owncloud_mariadb:
-    image: mariadb:10.11.6  # Version compatible with OwnCloud - check OwnCloud docs for updates
-    container_name: owncloud_mariadb
-    restart: unless-stopped
-    environment:
-      - MYSQL_ROOT_PASSWORD=${MARIADB_ROOT_PASSWORD} # Root DB password from .env
-      - MYSQL_DATABASE=owncloud # Default DB name for OwnCloud
-      - MYSQL_USER=owncloud     # Default DB user for OwnCloud
-      - MYSQL_PASSWORD=${OWNCLOUD_DB_PASSWORD} # DB user password from .env
-      - TZ=${TZ:-America/New_York}
-    volumes:
-      - owncloud_mysql_data:/var/lib/mysql # Persistent database storage
-    networks:
-      - default # Internal network for OwnCloud app to connect
-    healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-u", "root", "--password=${MARIADB_ROOT_PASSWORD}"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
-  # owncloud_redis: # Uncomment to add Redis for caching
-  #   image: redis:7.2-alpine # Pinned version - check for updates
-  #   container_name: owncloud_redis
-  #   restart: unless-stopped
-  #   networks:
-  #     - default
-
-  syncthing:
-    image: syncthing/syncthing:1.27.7  # Pinned stable version - check for updates
-    container_name: syncthing
-    hostname: homelab-syncthing # Custom hostname within its network context
-    restart: unless-stopped
-    network_mode: host  # Uses host network for better P2P discovery & NAT traversal
-    environment:
-      - PUID=${SYNCTHING_PUID:-1000} # User ID from .env
-      - PGID=${SYNCTHING_PGID:-1000} # Group ID from .env
-      - TZ=${TZ:-America/New_York}
-    volumes:
-      - ./syncthing_config:/var/syncthing/config # Configuration files (bind mount)
-      - ./syncthing_data:/var/syncthing/Sync    # Main data sync folder (bind mount)
-      # Add more volumes here for other directories you want Syncthing to manage
-      # - /path/on/host/photos:/var/syncthing/Photos
-    # deploy: # Optional: Resource limits
-    #   resources:
-    #     limits:
-    #       memory: 2G
-
-  # --- Infrastructure and Management Services ---
-  caddy:
-    # IMPORTANT: Use an image with the Cloudflare DNS plugin if using DNS challenge.
-    # Example: image: ghcr.io/caddy-dns/cloudflare:latest
-    # Or a version-pinned one: image: ghcr.io/caddybuilds/caddy-cloudflare:2.7.6
-    image: caddy:2.7.6-alpine  # Standard Alpine version (no DNS plugins by default)
-    container_name: caddy
-    restart: unless-stopped
-    ports:
-      - "80:80"    # HTTP
-      - "443:443"  # HTTPS
-      - "443:443/udp" # For HTTP/3
-    volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile:ro # Caddy configuration (bind mount, read-only)
-      - caddy_data:/data                   # SSL certificates and other Caddy data
-      - caddy_config:/config               # Caddy operational config
-    environment:
-      # Ensure this variable name matches what your Caddy Cloudflare plugin expects, if used.
-      - CLOUDFLARE_API_TOKEN=${CLOUDFLARE_API_TOKEN} # API token from .env (for DNS challenge)
-      - ACME_EMAIL=${ACME_EMAIL}                     # Email for Let's Encrypt from .env
-      - TZ=${TZ:-America/New_York}
-    networks:
-      - proxy_network # Connects to services it will proxy
-    cap_add:
-      - NET_BIND_SERVICE # Allows Caddy to bind to privileged ports (80, 443)
-
-  ddclient:
-    image: linuxserver/ddclient:3.11.2-ls1 # Pinned version - check linuxserver.io for updates
-    # The original compose file had image: linuxserver/ddclient:6.12.0.
-    # Version 3.11.2-ls1 is a common stable tag for linuxserver ddclient.
-    # Please verify the latest stable tag from linuxserver.io if 6.12.0 was intended and available.
-    container_name: ddclient
-    restart: unless-stopped
-    network_mode: host # Uses host network to accurately determine the public IP
-    environment:
-      - PUID=1000 # Optional: User ID, if needed for config file permissions
-      - PGID=1000 # Optional: Group ID
-      - TZ=${TZ:-America/New_York}
-      # ddclient specific config is usually done via a ddclient.conf file
-      # For Cloudflare via environment variables with this image:
-      - DDCLIENT_PROTOCOL=cloudflare
-      - DDCLIENT_LOGIN=${DDCLIENT_CLOUDFLARE_EMAIL}    # Cloudflare email from .env
-      - DDCLIENT_PASSWORD=${DDCLIENT_CLOUDFLARE_API_TOKEN} # Cloudflare API token for ddclient from .env
-      - DDCLIENT_ZONE=${DDCLIENT_CLOUDFLARE_ZONE}      # Cloudflare zone from .env
-      - DDCLIENT_RECORDS=${DDCLIENT_CLOUDFLARE_RECORDS}  # Records to update from .env
-    volumes:
-      - ddclient_config:/config # Persistent configuration and cache for ddclient
-
-  portainer:
-    image: portainer/portainer-ce:2.20.2 # Pinned CE version - check for updates
-    container_name: portainer
-    restart: unless-stopped
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock:ro # Access to Docker socket (read-only for safety)
-      - portainer_data:/data                         # Persistent Portainer data
-    networks:
-      - proxy_network # To be exposed via Caddy
+    # --- End Optional: GPU Acceleration ---
 
 volumes:
   ollama_data:
-  anythingllm_storage:
-  anythingllm_hotdir:
-  owncloud_files:
-  owncloud_mysql_data:
-  # owncloud_redis_data: # Uncomment if Redis is added
-  portainer_data:
-  caddy_data:
-  caddy_config:
-  ddclient_config: # Changed from ddclient_cache for clarity in the original, ensure consistency
-
-networks:
-  default: # Default internal bridge network for backend communication
-    driver: bridge
-  proxy_network: # Explicit bridge network for services exposed via Caddy
-    driver: bridge
 ```
+
+**Key Setup Notes:**
+*   **API Port:** Ollama serves its API on port `11434`. This is mapped to the host.
+*   **Model Storage:** Models downloaded by Ollama are stored in the `/root/.ollama` directory within the container. This is mapped to a named Docker volume `ollama_data` to ensure models persist across container restarts.
+*   **Running Models:** After starting the container, you can interact with Ollama using its CLI through `docker exec` or via its API:
+    *   **CLI Example (pull Llama 2):** `docker exec -it ollama ollama pull llama2`
+    *   **CLI Example (run Llama 2):** `docker exec -it ollama ollama run llama2`
+    *   **API Endpoint:** `http://localhost:11434`
+*   **GPU Acceleration (NVIDIA):**
+    *   To use an NVIDIA GPU, you must have the [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html) installed on your Docker host.
+    *   Uncomment the `deploy` section in the `docker-compose.yml`.
+    *   The `count: all` will attempt to make all available GPUs accessible to Ollama. You can specify particular GPUs if needed.
+    *   Verify GPU access within the container by running a model and observing logs or using `nvidia-smi` if it were included in the base image (Ollama's official image is minimal, so direct `nvidia-smi` inside might not work, but model loading logs should indicate GPU usage).
+*   **Other GPU Vendors (AMD, Intel):** Refer to the official Ollama documentation for the latest guidance on enabling acceleration for other GPU types, as this often requires different Docker image variants or host configurations.
+*   **Resource Usage:** LLMs can be very resource-intensive (CPU, RAM, GPU VRAM). Monitor your system's resources. You might want to add resource limits to the service definition in `docker-compose.yml` if running on a shared system:
+    ```yaml
+    # Example resource limits (adjust as needed)
+    # deploy:
+    #   resources:
+    #     limits:
+    #       cpus: '4.0'  # Limit to 4 CPU cores
+    #       memory: 16G # Limit to 16GB RAM
+    #     reservations: # if not using GPU reservations above
+    #       cpus: '2.0'
+    #       memory: 8G
+    ```
+
+---
+
+## AnythingLLM
+
+**Description:** AnythingLLM is a full-stack application for creating private ChatGPT-like experiences. It allows you to chat with your documents, use AI agents, and connect to various LLMs (like Ollama) and vector databases.
+
+**Source:** [AnythingLLM GitHub Repository](https://github.com/Mintplex-Labs/anything-llm) (The official `docker-compose.yml` is for building from source, this example uses their pre-built Docker Hub image.)
+
+**Docker Compose (`docker-compose.yml`):**
+```yaml
+version: '3.8'
+
+services:
+  anythingllm:
+    image: mintplexlabs/anythingllm:latest
+    container_name: anythingllm
+    ports:
+      - "3001:3001" # Frontend and API port
+    volumes:
+      # Persists application data, vector stores, and configurations
+      - ./anythingllm_storage:/app/server/storage
+      # Directory for documents to be automatically processed
+      - ./anythingllm_hotdir:/app/collector/hotdir
+      # Optional: If you need to inspect collector outputs
+      # - ./anythingllm_outputs:/app/collector/outputs
+    environment:
+      # This must match the internal path of the storage volume
+      - STORAGE_DIR=/app/server/storage
+      # Example: If Ollama is running in another container named 'ollama'
+      # on the same Docker network, uncomment and set this:
+      # - OLLAMA_BASE_URL=http://ollama:11434
+      # If Ollama is on the host machine and Docker can resolve host.docker.internal:
+      # - OLLAMA_BASE_URL=http://host.docker.internal:11434
+    restart: unless-stopped
+    # --- Optional: Define a network to connect with Ollama ---
+    # networks:
+    #   - llm_network
+
+# Optional: Define the network if connecting to other services like Ollama
+# networks:
+#   llm_network:
+#     driver: bridge
+
+# Note: The official docker-compose.yml from the repository includes a build context
+# and an .env file mapping. This example is simplified for pre-built images.
+# You might need an .env file for more advanced configurations.
+# Example .env content (place in the same directory as docker-compose.yml):
+#
+# OLLAMA_BASE_URL=http://ollama:11434  # If Ollama is a service on the same Docker network
+# JWT_SECRET=           # Generate a strong random string (e.g., openssl rand -hex 32)
+#                          # Required for multi-user mode if you enable it.
+# ANYTHING_LLM_PASSWORD= # Optional: Set a master password for the instance.
+```
+
+**Key Setup Notes:**
+*   **Image:** Uses the pre-built image `mintplexlabs/anythingllm:latest` from Docker Hub. You can pin to a specific version tag for stability.
+*   **Ports:** Exposes port `3001` for the web UI and API.
+*   **Volumes:**
+    *   `./anythingllm_storage:/app/server/storage`: **Crucial.** This maps a host directory (create `./anythingllm_storage` or choose your path) to the container's storage location for all persistent data, including vector embeddings, conversation history, and system settings.
+    *   `./anythingllm_hotdir:/app/collector/hotdir`: Maps a host directory for document ingestion. Files placed here will be automatically processed by AnythingLLM.
+*   **Environment Variables:**
+    *   `STORAGE_DIR=/app/server/storage`: **Required.** Tells AnythingLLM where its storage path inside the container is. This must match the target of your main storage volume.
+    *   `OLLAMA_BASE_URL`: **Important for connecting to Ollama.**
+        *   If Ollama is running as another Docker container (e.g., named `ollama`) on the same Docker network (e.g., `llm_network`), set this to `http://ollama:11434`. Make sure both services are attached to this network (uncomment the `networks` sections in the YAML).
+        *   If Ollama is running directly on your host machine, you might use `http://host.docker.internal:11434` (Docker Desktop, some Linux setups) or the host's actual IP address on the Docker bridge network.
+    *   `.env` **File (Optional but Recommended):** For more complex setups or to keep secrets out of the compose file, you can use an `.env` file in the same directory as your `docker-compose.yml`. The compose example has a commented-out `env_file` line. If used, variables like `OLLAMA_BASE_URL`, `JWT_SECRET` (for multi-user mode), and `ANYTHING_LLM_PASSWORD` can be defined there.
+*   **Networking:**
+    *   If running Ollama (or other LLMs/VectorDBs) as separate Docker containers, ensure they are on the same Docker network as AnythingLLM for easy communication using service names. The example includes commented-out sections for defining and using a network named `llm_network`.
+*   **Initial Setup:** After starting, access the UI at `http://<your-host-ip>:3001`. You'll be guided through setting up your LLM provider (e.g., connecting to Ollama by providing its base URL), embedding model, and vector database.
+*   **User Management:** The Docker version supports multi-user mode. This typically requires setting a `JWT_SECRET` environment variable.
+
+---
+
+## ownCloud Infinite Scale
+
+**Description:** ownCloud Infinite Scale (oCIS) is a modern file-sync and share platform. This example sets up oCIS using its simple Docker deployment, which runs without a traditional database like MariaDB or PostgreSQL, relying on its internal store by default for simpler setups. For production, external storage and user backends are typically configured.
+
+**Source:** [ownCloud Infinite Scale Docker Deployment](https://doc.owncloud.com/ocis/next/deployment/docker/docker-simple.html) and [Docker Hub `owncloud/ocis`](https://hub.docker.com/r/owncloud/ocis)
+
+**Docker Compose (`docker-compose.yml`):**
+```yaml
+version: '3.8'
+
+services:
+  owncloud-ocis:
+    image: owncloud/ocis:latest # Or a specific version tag
+    container_name: owncloud_ocis
+    ports:
+      - "9200:9200" # Main oCIS port
+    volumes:
+      - ocis_data:/var/lib/ocis # Persistent data for oCIS
+    environment:
+      - OCIS_URL=https://your.domain.com # Replace with your public domain
+      - OCIS_ADMIN_PASSWORD=yoursecureadminpassword # Change this!
+      # - OCIS_INSECURE=true # Uncomment for HTTP only if not using a reverse proxy with HTTPS
+    restart: unless-stopped
+
+volumes:
+  ocis_data:
+```
+
+**Key Setup Notes:**
+*   **Image:** Uses `owncloud/ocis:latest`. Pin to a specific version for production.
+*   **oCIS vs. ownCloud Server (10.x):** This example is for **ownCloud Infinite Scale (oCIS)**, which is the newer generation platform. The older `owncloud/server` (version 10.x) has a different setup, typically requiring an external SQL database (like MariaDB/PostgreSQL) and often Redis. If you need ownCloud 10.x, refer to its specific documentation.
+*   **Port:** Exposes port `9200` for the oCIS instance.
+*   **Volume:** `ocis_data:/var/lib/ocis` stores all oCIS data, including user files if using the default internal storage.
+*   **Environment Variables:**
+    *   `OCIS_URL`: **Crucial.** Set this to the public URL where your oCIS instance will be accessible (e.g., `https://cloud.example.com`). This is used for internal routing and link generation.
+    *   `OCIS_ADMIN_PASSWORD`: **Required.** Set a strong password for the initial admin user (default username is often `admin` or `ocis`).
+    *   `OCIS_INSECURE=true`: **For testing/HTTP only.** If you are running oCIS without a reverse proxy providing HTTPS, you might need to set this to `true`. For production, always use HTTPS, typically handled by a reverse proxy like Caddy or Nginx. If using a reverse proxy, ensure it correctly passes headers like `X-Forwarded-Proto`.
+*   **Initial Login:** Access oCIS via the `OCIS_URL` you configured. Log in with the admin user (often `admin`) and the `OCIS_ADMIN_PASSWORD`.
+*   **Reverse Proxy:** For production, it's highly recommended to run oCIS behind a reverse proxy (like Caddy or Nginx) that handles SSL/TLS termination (HTTPS). The reverse proxy would forward traffic to `http://localhost:9200` (or whatever host/port oCIS is running on from the proxy's perspective).
+*   **Data Storage & User Backend:** The simple Docker setup uses an internal data store. For more scalable or production deployments, oCIS can be configured to use external S3-compatible storage, NFS, local POSIX filesystems with more control, and external user backends (LDAP, OpenID Connect). These are advanced configurations beyond this basic compose example. Refer to the [oCIS documentation](https://doc.owncloud.com/ocis/next/) for details.
+
+---
+
+## Syncthing
+
+**Description:** Syncthing is a continuous file synchronization program. It synchronizes files between two or more computers in real time, safely protected from prying eyes. Your data is your data alone and you deserve to choose where it is stored, if it is shared with some third party, and how it's transmitted over the Internet. This example uses the LinuxServer.io image.
+
+**Source:** [LinuxServer.io Syncthing Documentation](https://docs.linuxserver.io/images/docker-syncthing) and [Syncthing Official Website](https://syncthing.net/)
+
+**Docker Compose (`docker-compose.yml`):**
+```yaml
+version: '3.8'
+
+services:
+  syncthing:
+    image: lscr.io/linuxserver/syncthing:latest
+    container_name: syncthing
+    hostname: syncthing # Optional: for easier identification in Syncthing network
+    environment:
+      - PUID=1000 # Your user ID
+      - PGID=1000 # Your group ID
+      - TZ=Etc/UTC # Your timezone, e.g., America/New_York
+    volumes:
+      - ./syncthing_config:/config   # For Syncthing's configuration files
+      - ./syncthing_data1:/data1     # Example data directory 1 to sync
+      - ./syncthing_data2:/data2     # Example data directory 2 to sync
+      # Add more volumes as needed for other directories you want to sync
+    ports:
+      - "8384:8384"    # Web UI
+      - "22000:22000/tcp" # TCP file transfers & protocol messages
+      - "22000:22000/udp" # QUIC file transfers & protocol messages
+      - "21027:21027/udp" # For local discovery
+    restart: unless-stopped
+    # For improved discovery, especially across different networks or with NAT,
+    # host networking can be considered, but it increases security exposure.
+    # network_mode: host
+```
+
+**Key Setup Notes:**
+*   **PUID/PGID:** Set to the user/group IDs that should own the configuration and data files on the host. Use `id $(whoami)` to find your current user's IDs. This is important for file permissions.
+*   **Timezone (TZ):** Set your correct [timezone](https://en.wikipedia.org/wiki/List_of_tz_database_time_zones).
+*   **Volumes:**
+    *   `./syncthing_config:/config`: **Crucial.** Maps a host directory (e.g., create `./syncthing_config`) to store Syncthing's configuration, device keys, and database.
+    *   `/data1`, `/data2`, etc.: These are examples. You should map host directories that you want Syncthing to manage and synchronize. For example, if you want to sync your `~/Documents` folder, you might use `- ./my_documents:/sync/documents` inside the container (and then add `/sync/documents` as a folder within the Syncthing UI). The paths inside the container (e.g., `/data1`) are what you'll configure in the Syncthing Web UI.
+*   **Ports:**
+    *   `8384:8384`: The port for Syncthing's Web UI. Access it at `http://<your-host-ip>:8384`.
+    *   `22000:22000/tcp` and `22000:22000/udp`: Main protocol listening port for incoming connections (both TCP and UDP for QUIC). Essential for communication between devices.
+    *   `21027:21027/udp`: Used for local peer discovery.
+    *   Ensure these ports are allowed through your host's firewall if you want to sync with devices outside your local network. Port forwarding on your router might be necessary for port `22000` (TCP/UDP).
+*   **Web UI Security:** The LinuxServer.io documentation strongly suggests setting a username and password for the Syncthing Web UI, especially if the UI port (8384) is exposed. Do this via `Actions -> Settings -> GUI` in the Syncthing UI after initial setup.
+*   **Hostname:** Setting a `hostname` in the compose file can make it easier to identify this Syncthing instance in the Syncthing network and UI of other devices.
+*   **Network Mode:**
+    *   The default bridge network mode is generally fine.
+    *   For potentially better peer discovery, especially in complex network setups or when dealing with NAT, `network_mode: host` can be used. However, this exposes all of the container's ports directly on the host and gives the container more network privileges, which is a security consideration. If using `host` mode, the `ports` mapping section is ignored (as all container ports are automatically mapped).
+*   **Initial Setup:**
+    1.  Access the Web UI at `http://<your-host-ip>:8384`.
+    2.  Set a GUI username and password.
+    3.  Add remote devices by their Device ID.
+    4.  Add folders you want to sync (pointing to the paths you mapped as volumes, e.g., `/data1`).
+    5.  Share folders with your remote devices.
+
+---
