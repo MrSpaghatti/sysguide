@@ -1,722 +1,600 @@
-# Modern Arch linux installation guide
+# Modern Arch Linux Installation Guide
 
-# Table of contents
+## Table of Contents
 
 - [Introduction](#introduction)
 - [Preliminary Steps](#preliminary-steps)
-- [Main installation](#main-installation)
-  - [Disk partitioning](#disk-partitioning)
-  - [Disk formatting](#disk-formatting)
-  - [Disk mounting](#disk-mounting)
-  - [Packages installation](#packages-installation)
-  - [Fstab](#fstab)
-  - [Context switch to our new system](#context-switch-to-our-new-system)
-  - [Set up the time zone](#set-up-the-time-zone)
-  - [Set up the language and tty keyboard map](#set-up-the-language-and-tty-keyboard-map)
-  - [Hostname and Host configuration](#hostname-and-host-configuration)
-  - [Root and users](#root-and-users)
-  - [Grub configuration](#grub-configuration)
-  - [Unmount everything and reboot](#unmount-everything-and-reboot)
-  - [Automatic snapshot boot entries update](#automatic-snapshot-boot-entries-update)
-  - [Virtualbox support](#virtualbox-support)
-  - [Aur helper and additional packages installation](#aur-helper-and-additional-packages-installation)
+- [Main Installation](#main-installation)
+  - [Disk Partitioning](#disk-partitioning)
+  - [Disk Formatting](#disk-formatting)
+  - [Disk Mounting](#disk-mounting)
+  - [Package Installation](#package-installation)
+  - [Fstab Generation](#fstab-generation)
+  - [Chroot into New System](#chroot-into-new-system)
+  - [Time Zone Setup](#time-zone-setup)
+  - [Localization and Keyboard Layout](#localization-and-keyboard-layout)
+  - [Hostname and Hosts Configuration](#hostname-and-hosts-configuration)
+  - [Root and User Accounts](#root-and-user-accounts)
+  - [GRUB Bootloader Configuration](#grub-bootloader-configuration)
+  - [Final Steps Before Reboot](#final-steps-before-reboot)
+  - [Automatic Snapshot Boot Entries Update](#automatic-snapshot-boot-entries-update)
+  - [VirtualBox Guest Additions](#virtualbox-guest-additions)
+  - [AUR Helper and Additional Packages](#aur-helper-and-additional-packages)
   - [Finalization](#finalization)
-- [Video drivers](#video-drivers)
-  - [Amd](#amd)
-    - [32 Bit support](#32-bit-support)
+- [Video Drivers](#video-drivers)
+  - [AMD](#amd)
+    - [32-Bit Support (AMD)](#32-bit-support-amd)
   - [Nvidia](#nvidia)
   - [Intel](#intel)
-- [Setting up a graphical environment](#setting-up-a-graphical-environment)
+- [Setting up a Graphical Environment](#setting-up-a-graphical-environment)
   - [Option 1: KDE Plasma](#option-1-kde-plasma)
-  - [Option 2: Hyprland \[WIP\]](#option-2-hyprland-wip)
-- [Adding a display manager](#adding-a-display-manager)
-- [Gaming](#gaming)
-  - [Gaming clients](#gaming-clients)
-  - [Windows compatibility layers](#windows-compatibility-layers)
-  - [Generic optimizations](#generic-optimizations)
-  - [Overclocking and monitoring](#overclocking-and-monitoring)
-- [Additional notes](#additional-notes)
-- [Things to add](#things-to-add)
+  - [Option 2: Hyprland (WIP)](#option-2-hyprland-wip)
+- [Adding a Display Manager](#adding-a-display-manager)
+- [Gaming Setup](#gaming-setup)
+  - [Gaming Clients](#gaming-clients)
+  - [Windows Compatibility Layers](#windows-compatibility-layers)
+  - [Generic Optimizations](#generic-optimizations)
+  - [Overclocking and Monitoring](#overclocking-and-monitoring)
+- [Additional Notes](#additional-notes)
+- [Future Additions](#future-additions)
 
-# Introduction
+---
 
-The goal of this guide is to help new users set up a modern and minimal installation of **Arch Linux** with **BTRFS** on an **UEFI system**. I'll start from the basic terminal installation and then set up **video drivers, a desktop environment and provide basic gaming configuration**. This guide is thought to be read alongside the wiki, so that it if something ever changes you can fix it but it's not necessary unless my guide becomes outdated. Also I will mention external references to justify some choices that I've made so that curious users can delve into the details.  
+## Introduction
 
-### Note that:
+The goal of this guide is to help new users set up a modern and minimal installation of **Arch Linux** with **BTRFS** on an **UEFI system**. This guide covers the basic terminal installation, video driver setup, desktop environment installation, and basic gaming configuration. It is intended to be used alongside the [Arch Wiki](https://wiki.archlinux.org/title/Installation_guide) for the most up-to-date information. External references are provided for further details on specific choices.
 
-- I **won't** prepare the system for **secure boot** because the procedure of custom key enrollment in the BIOS is dangerous and [can lead to a bricked system](https://wiki.archlinux.org/title/Unified_Extensible_Firmware_Interface/Secure_Boot#Creating_and_enrolling_keys). If you are wondering why not using the default OEM keys in the BIOS, it's because they will make secure boot useless by being most likely [not enough secure](https://wiki.archlinux.org/title/Unified_Extensible_Firmware_Interface/Secure_Boot#Implementing_Secure_Boot).
+### Important Considerations:
 
-- I **won't** encrypt the system because I don't need it and because encryption always adds a little bit of overhead in the boot phase leading to a **slower to varying degrees** start\-up, depending on your configuration. However it may be important for you so if you really wanna go this way I recommend reading [the wiki page in this regards](https://wiki.archlinux.org/title/Dm-crypt) and **must** perform the documented steps **IMMEDIATELY AFTER** [disk partitioning](#disk-partitioning). Also note that you must set the type of partition to a LUKS partition instead of a standard Linux partition when partitioning with `fdisk`.
+*   **Secure Boot:** This guide does **not** cover Secure Boot setup due to the risks involved with custom key enrollment ([potential bricking](https://wiki.archlinux.org/title/Unified_Extensible_Firmware_Interface/Secure_Boot#Creating_and_enrolling_keys)) and the questionable security of default OEM keys ([more info](https://wiki.archlinux.org/title/Unified_Extensible_Firmware_Interface/Secure_Boot#Implementing_Secure_Boot)).
+*   **System Encryption:** Full system encryption is **not** covered as it can introduce boot time overhead. If encryption is required, refer to the [Arch Wiki dm-crypt page](https://wiki.archlinux.org/title/Dm-crypt) and implement it **immediately after** [disk partitioning](#disk-partitioning). Remember to set the partition type to LUKS instead of a standard Linux partition in `fdisk`.
+*   **Arch ISO Preparation:** The creation of the Arch Linux installation media is **skipped**.
+*   **Network Connection:** This guide assumes a **wired** internet connection. For Wi-Fi, use `wifi-menu` (TUI) or [`iwctl`](https://wiki.archlinux.org/title/Iwd#iwctl).
 
-- I'll **skip** the Arch ISO installation media preparation.
+---
 
-- I'll use a **wired** connection, so no wireless configuration steps will be shown. If you want to connect to wifi, you can either launch `wifi-menu` from the terminal which is a **TGUI** or use [`iwctl`](https://wiki.archlinux.org/title/Iwd#iwctl).
+## Preliminary Steps
 
-<br>
+### 1. Set Keyboard Layout
 
-# Preliminary steps  
-
-First set up your keyboard layout  
-
-```Zsh
-# List all the available keyboard maps and filter them through grep, in this case i am looking for an italian keyboard, which usually starts with "it", for english filter with "en"
+List available keymaps and load the desired one.
+```bash
+# List Italian keymaps
 ls /usr/share/kbd/keymaps/**/*.map.gz | grep it
 
-# If you prefer you can scroll the whole list like this
+# List all keymaps (interactive)
 ls /usr/share/kbd/keymaps/**/*.map.gz | less
-
-# Or like this
+# Alternative listing
 localectl list-keymaps
 
-# Now get the name without the path and the extension ( localectl returns just the name ) and load the layout. In my case it is simply "it"
+# Load Italian keymap (replace 'it' with your layout)
 loadkeys it
 ```
 
-<br>
-
-Check that we are in UEFI mode  
-
-```Zsh
-# If this command prints 64 or 32 then you are in UEFI
+### 2. Verify UEFI Boot Mode
+```bash
+# Output of 32 or 64 confirms UEFI mode
 cat /sys/firmware/efi/fw_platform_size
 ```
 
-<br>
-
-Check the internet connection  
-
-```Zsh
-ping -c 5 archlinux.org 
+### 3. Check Internet Connection
+```bash
+ping -c 5 archlinux.org
 ```
 
-<br>
-
-Check the system clock
-
-```Zsh
-# Check if ntp is active and if the time is right
+### 4. Synchronize System Clock
+```bash
+# Check status and time
 timedatectl
 
-# In case it's not active you can do
+# If NTP is not active:
 timedatectl set-ntp true
-
-# Or this
-systemctl enable systemd-timesyncd.service
+# Or ensure the service is enabled:
+sudo systemctl enable systemd-timesyncd.service
 ```
 
-<br>
+---
 
-# Main installation
+## Main Installation
 
-## Disk partitioning
+### Disk Partitioning
 
-I will make 2 partitions:  
+This guide uses a 2-partition scheme:
 
-| Number | Type | Size |
-| --- | --- | --- |
-| 1 | EFI | 512 Mb |
-| 2 | Linux Filesystem | 99.5Gb \(all of the remaining space \) |  
+| Partition | Type             | Size                               |
+| :-------- | :--------------- | :--------------------------------- |
+| 1         | EFI System       | 512M                               |
+| 2         | Linux filesystem | Remaining space (e.g., 99.5GB)     |
 
-<br>
-
-```Zsh
-# Check the drive name. Mine is /dev/nvme0n1
-# If you have an hdd is something like sdax
+```bash
+# List block devices to identify your drive (e.g., /dev/nvme0n1, /dev/sda)
 fdisk -l
 
-# Now you can either go and partition your disk with fdisk and follow the steps below,
-# or if you want to do things yourself and make it easier, use cfdisk ( an fdisk TUI wrapper ) which is
-# much more user friendly. A reddit user suggested me this and it's indeed very intuitive to use.
-# If you choose cfdisk you will have to invoke it the same way as I did with fdisk below, but
-# you don't need to follow my commands blindly as with fdisk below, just navigate the UI with the arrows
-# and press enter to get inside menus, remember to write changes before quitting.
+# Start fdisk (replace /dev/nvme0n1 with your drive)
+sudo fdisk /dev/nvme0n1
+```
+Inside `fdisk`, follow these steps (press Enter after each command character):
+1.  `g` (Create a new empty GPT partition table)
+2.  `n` (Add a new partition - for EFI)
+3.  `ENTER` (Default partition number)
+4.  `ENTER` (Default first sector)
+5.  `+512M` (Size for EFI partition)
+6.  `t` (Change partition type)
+7.  `ENTER` (Default partition number, should be 1)
+8.  `1` (Select EFI System type)
+9.  `n` (Add a new partition - for root)
+10. `ENTER` (Default partition number)
+11. `ENTER` (Default first sector)
+12. `ENTER` (Default last sector - use all remaining space)
+    *   *Alternatively, specify size like `+100G` for a 100GB partition.*
+13. `p` (Print the partition table to verify)
+14. `w` (Write table to disk and exit)
+    *   *Use `q` to quit without saving if you made a mistake.*
 
-# Invoke fdisk to partition
-fdisk /dev/nvme0n1
+> **Tip:** For a more user-friendly TUI, consider using `cfdisk /dev/nvme0n1` instead of `fdisk`.
 
-# Now press the following commands, when i write ENTER press enter
-g
-ENTER
-n
-ENTER
-ENTER
-ENTER
-+512M
-ENTER
-t
-ENTER
-ENTER
-1
-ENTER
-n
-ENTER
-ENTER
-ENTER # If you don't want to use all the space then select the size by writing +XG ( eg: to make a 10GB partition +10G )
-p
-ENTER # Now check if you got the partitions right
+### Disk Formatting
 
-# If so write the changes
-w
-ENTER
+This guide uses [**BTRFS**](https://wiki.archlinux.org/title/Btrfs) for its features like Copy-on-Write (CoW), snapshots, and built-in compression.
 
-# If not you can quit without saving and redo from the beginning
-q
-ENTER
+```bash
+# Format EFI partition (e.g., /dev/nvme0n1p1)
+sudo mkfs.fat -F 32 /dev/nvme0n1p1
+
+# Format root partition (e.g., /dev/nvme0n1p2) with BTRFS
+sudo mkfs.btrfs /dev/nvme0n1p2
+
+# Mount the BTRFS volume to create subvolumes
+sudo mount /dev/nvme0n1p2 /mnt
 ```
 
-<br>
+### Disk Mounting
 
-## Disk formatting  
+A **flat** subvolume layout is used. For details on flat vs. nested layouts, see [this old BTRFS Sysadmin Guide section](https://archive.kernel.org/oldwiki/btrfs.wiki.kernel.org/index.php/SysadminGuide.html#Layout).
 
-For the file system I've chosen [**BTRFS**](https://wiki.archlinux.org/title/Btrfs) which has evolved quite a lot in the recent years. It is most known for its **Copy on Write** feature which enables it to make system snapshots in a blink of a an eye and to save a lot of disk space, which can be even saved to a greater extent by enabling built\-in **compression**. Also it lets the user create **subvolumes** which can be individually snapshotted.
+```bash
+# Create BTRFS subvolumes for root and home
+sudo btrfs subvolume create /mnt/@
+sudo btrfs subvolume create /mnt/@home
 
-```Zsh
-# Find the efi partition with fdisk -l or lsblk. For me it's /dev/nvme0n1p1 and format it.
-mkfs.fat -F 32 /dev/nvme0n1p1
-
-# Find the root partition. For me it's /dev/nvme0n1p2 and format it. I will use BTRFS.
-mkfs.btrfs /dev/nvme0n1p2
-
-# Mount the root fs to make it accessible
-mount /dev/nvme0n1p2 /mnt
+# Unmount the temporary BTRFS mount
+sudo umount /mnt
 ```
 
-<br>
+Mount subvolumes with **Zstd compression** ([benchmark reference](https://www.phoronix.com/review/btrfs-zstd-compress)):
+```bash
+# Mount root subvolume with Zstd compression
+sudo mount -o compress=zstd,subvol=@ /dev/nvme0n1p2 /mnt
 
-## Disk mounting
-
-I will lay down the subvolumes on a **flat** layout, which is overall superior in my opinion and less constrained than a **nested** one. What's the difference ? If you're interested [this section of the old sysadmin guide](https://archive.kernel.org/oldwiki/btrfs.wiki.kernel.org/index.php/SysadminGuide.html#Layout) explains it.
-
-```Zsh
-# Create the subvolumes, in my case I choose to make a subvolume for / and one for /home. Subvolumes are identified by prepending @
-# NOTICE: the list of subvolumes will be increased in a later release of this guide, upon proper testing and judgement. See the "Things to add" chapter.
-btrfs subvolume create /mnt/@
-btrfs subvolume create /mnt/@home
-
-# Unmount the root fs
-umount /mnt
+# Create home directory mount point and mount home subvolume
+sudo mkdir -p /mnt/home
+sudo mount -o compress=zstd,subvol=@home /dev/nvme0n1p2 /mnt/home
 ```
 
-<br>
-
-For this guide I'll compress the btrfs subvolumes with **Zstd**, which has proven to be [a good algorithm among the choices](https://www.phoronix.com/review/btrfs-zstd-compress)  
-
-```Zsh
-# Mount the root and home subvolume. If you don't want compression just remove the compress option.
-mount -o compress=zstd,subvol=@ /dev/nvme0n1p2 /mnt
-mkdir -p /mnt/home
-mount -o compress=zstd,subvol=@home /dev/nvme0n1p2 /mnt/home
+Mount the EFI partition to `/efi`. Using `/efi` instead of `/boot` avoids issues with restoring the root subvolume (`@`) after kernel updates, as `/boot` contents would not be part of the `@` snapshot. More info [here](https://wiki.archlinux.org/title/EFI_system_partition#Typical_mount_points).
+```bash
+sudo mkdir -p /mnt/efi
+sudo mount /dev/nvme0n1p1 /mnt/efi
 ```
 
-<br>
-
-Now we have to mount the efi partition. In general there are 2 main mountpoints to use: `/efi` or `/boot` but in this configuration i am **forced** to use `/efi`, because by choosing `/boot` we could experience a **system crash** when trying to restore `@` _\( the root subvolume \)_ to a previous state after kernel updates. This happens because `/boot` files such as the kernel won't reside on `@` but on the efi partition and hence they can't be saved when snapshotting `@`. Also this choice grants separation of concerns and also is good if one wants to encrypt `/boot`, since you can't encrypt efi files. Learn more [here](https://wiki.archlinux.org/title/EFI_system_partition#Typical_mount_points)
-
-```Zsh
-mkdir -p /mnt/efi
-mount /dev/nvme0n1p1 /mnt/efi
+### Package Installation
+```bash
+# Bootstrap the system with essential packages.
+# Adjust the list as needed.
+# - base, linux, linux-firmware: Core system. (Use linux-lts for Long Term Support kernel)
+# - base-devel: Basic development tools.
+# - git: Version control system.
+# - btrfs-progs: BTRFS utilities.
+# - grub: Bootloader.
+# - efibootmgr: For GRUB installation on UEFI.
+# - grub-btrfs: GRUB support for BTRFS snapshots.
+# - inotify-tools: Used by grub-btrfsd for automatic snapshot detection.
+# - timeshift: GUI for BTRFS snapshots.
+# - amd-ucode: Microcode for AMD CPUs (use intel-ucode for Intel).
+# - vim: Text editor (or nano).
+# - networkmanager: Network management.
+# - pipewire, pipewire-alsa, pipewire-pulse, pipewire-jack: Modern audio framework.
+# - wireplumber: PipeWire session manager.
+# - reflector: Pacman mirror management.
+# - zsh, zsh-completions, zsh-autosuggestions: Shell and enhancements.
+# - openssh: SSH client and server.
+# - man: Manual pages.
+# - sudo: Privilege escalation.
+sudo pacstrap -K /mnt base base-devel linux linux-firmware git btrfs-progs grub efibootmgr grub-btrfs inotify-tools timeshift amd-ucode vim networkmanager pipewire pipewire-alsa pipewire-pulse pipewire-jack wireplumber reflector zsh zsh-completions zsh-autosuggestions openssh man sudo
 ```
 
-<br>
+### Fstab Generation
+```bash
+# Generate fstab file
+sudo genfstab -U /mnt >> /mnt/etc/fstab
 
-## Packages installation  
-
-```Zsh
-# This will install some packages to "bootstrap" methaphorically our system. Feel free to add the ones you want
-# "base, linux, linux-firmware" are needed. If you want a more stable kernel, then swap linux with linux-lts
-# "base-devel" base development packages
-# "git" to install the git vcs
-# "btrfs-progs" are user-space utilities for file system management ( needed to harness the potential of btrfs )
-# "grub" the bootloader
-# "efibootmgr" needed to install grub
-# "grub-btrfs" adds btrfs support for the grub bootloader and enables the user to directly boot from snapshots
-# "inotify-tools" used by grub btrfsd deamon to automatically spot new snapshots and update grub entries
-# "timeshift" a GUI app to easily create,plan and restore snapshots using BTRFS capabilities
-# "amd-ucode" microcode updates for the cpu. If you have an intel one use "intel-ucode"
-# "vim" my goto editor, if unfamiliar use nano
-# "networkmanager" to manage Internet connections both wired and wireless ( it also has an applet package network-manager-applet )
-# "pipewire pipewire-alsa pipewire-pulse pipewire-jack" for the new audio framework replacing pulse and jack. 
-# "wireplumber" the pipewire session manager.
-# "reflector" to manage mirrors for pacman
-# "zsh" my favourite shell
-# "zsh-completions" for zsh additional completions
-# "zsh-autosuggestions" very useful, it helps writing commands [ Needs configuration in .zshrc ]
-# "openssh" to use ssh and manage keys
-# "man" for manual pages
-# "sudo" to run commands as other users
-pacstrap -K /mnt base base-devel linux linux-firmware git btrfs-progs grub efibootmgr grub-btrfs inotify-tools timeshift vim networkmanager pipewire pipewire-alsa pipewire-pulse pipewire-jack wireplumber reflector zsh zsh-completions zsh-autosuggestions openssh man sudo
-```
-
-<br>
-
-## Fstab  
-
-```Zsh
-# Fetch the disk mounting points as they are now ( we mounted everything before ) and generate instructions to let the system know how to mount the various disks automatically
-genfstab -U /mnt >> /mnt/etc/fstab
-
-# Check if fstab is fine ( it is if you've faithfully followed the previous steps )
+# Verify the generated fstab
 cat /mnt/etc/fstab
 ```
 
-<br>
-
-## Context switch to our new system  
-
-```Zsh
-# To access our new system we chroot into it
-arch-chroot /mnt
+### Chroot into New System
+```bash
+sudo arch-chroot /mnt
 ```
 
-<br>
+### Time Zone Setup
+```bash
+# Find your time zone, e.g., /usr/share/zoneinfo/Europe/Rome
+# Create a symbolic link to /etc/localtime
+sudo ln -sf /usr/share/zoneinfo/Europe/Rome /etc/localtime
 
-## Set up the time zone
-
-```Zsh
-# In our new system we have to set up the local time zone, find your one in /usr/share/zoneinfo mine is /usr/share/zoneinfo/Europe/Rome and create a symbolic link to /etc/localtime
-ln -sf /usr/share/zoneinfo/Europe/Rome /etc/localtime
-
-# Now sync the system time to the hardware clock
-hwclock --systohc
+# Sync hardware clock
+sudo hwclock --systohc
 ```
 
-<br>
+### Localization and Keyboard Layout
 
-## Set up the language and tty keyboard map
-
-Edit `/etc/locale.gen` and uncomment the entries for your locales. Each entry represent a language and its formats for time, date, currency and other country related settings. By uncommenting we will mark the entry to be generated when the generate command will be issued, but note that it won't still be active. In my case I will uncomment _\( ie: remove the # \)_ `en_US.UTF-8 UTF-8` and `it_IT.UTF-8 UTF-8` because I use English as a display language and Italian for date, time and other formats.  
-
-```Zsh
-# To edit I will use vim, feel free to use nano instead.
-vim /etc/locale.gen
-
-# Now issue the generation of the locales
-locale-gen
+Edit `/etc/locale.gen` and uncomment your desired locales (e.g., `en_US.UTF-8 UTF-8`, `it_IT.UTF-8 UTF-8`).
+```bash
+sudo vim /etc/locale.gen # Or sudo nano /etc/locale.gen
+```
+Generate locales:
+```bash
+sudo locale-gen
 ```
 
-<br>
+Create `/etc/locale.conf` and set your language variables. For example, to use Italian formats with English display language:
+```ini
+LANG=it_IT.UTF-8
+LC_MESSAGES=en_US.UTF-8
+```
+If you want everything in one language (e.g., English):
+```ini
+LANG=en_US.UTF-8
+```
+Edit the file:
+```bash
+sudo vim /etc/locale.conf
+```
+More on locale variables [here](https://wiki.archlinux.org/title/Locale#Variables).
 
-Since the locale is generated but still not active, we will create the configuration file `/etc/locale.conf` and set the locale to the desired one, by setting the `LANG` variable accordingly. In my case I'll write `LANG=it_IT.UTF-8` to apply Italian settings to everything and then override only the display language to English by setting \( on a new line \) `LC_MESSAGES=en_US.UTF-8`. _\( if you want formats and language to stay the same **DON'T** set `LC_MESSAGES`  \)_. More on this [here](https://wiki.archlinux.org/title/Locale#Variables)
-
-```Zsh
-touch /etc/locale.conf
-vim /etc/locale.conf
+Make TTY keyboard layout persistent. Create `/etc/vconsole.conf` and set `KEYMAP` (e.g., `KEYMAP=it`).
+```bash
+# Example for Italian layout
+echo "KEYMAP=it" | sudo tee /etc/vconsole.conf
+# Or edit manually:
+# sudo vim /etc/vconsole.conf
 ```
 
-<br>
+### Hostname and Hosts Configuration
+```bash
+# Set your hostname (e.g., Arch)
+echo "Arch" | sudo tee /etc/hostname # Replace "Arch" with your desired hostname
 
-Now to make the current keyboard layout permanent for tty sessions , create `/etc/vconsole.conf` and write `KEYMAP=your_key_map` substituting the keymap with the one previously set [here](#preliminary-steps). In my case `KEYMAP=it`
-
-```Zsh
-vim /etc/vconsole.conf
+# Edit /etc/hosts
+sudo vim /etc/hosts
 ```
-
-<br>
-
-## Hostname and Host configuration
-
-```Zsh
-# Create /etc/hostname then choose and write the name of your pc in the first line. In my case I'll use Arch
-touch /etc/hostname
-vim /etc/hostname
-
-# Create the /etc/hosts file. This is very important because it will resolve the listed hostnames locally and not over Internet DNS.
-touch /etc/hosts
-```
-
-Write the following ip, hostname pairs inside /etc/hosts, replacing `Arch` with **YOUR** hostname:
-
+Add the following to `/etc/hosts`, replacing `Arch` with **your** hostname:
 ```
 127.0.0.1 localhost
-::1 localhost
-127.0.1.1 Arch
+::1       localhost
+127.0.1.1 Arch.localdomain Arch
 ```
 
-```Zsh
-# Edit the file with the information above
-vim /etc/hosts
+### Root and User Accounts
+```bash
+# Set root password
+sudo passwd
+
+# Add a new user (replace 'mjkstra' with your username)
+# -m: create home directory
+# -G wheel: add to wheel group (for sudo)
+# Add vboxsf to groups if on VirtualBox and needing shared folders: useradd -mG wheel,vboxsf yourusername
+sudo useradd -mG wheel mjkstra
+sudo passwd mjkstra # Set password for the new user
+
+# Allow users in the wheel group to use sudo
+# This command opens /etc/sudoers with visudo.
+# Uncomment the line: %wheel ALL=(ALL:ALL) ALL
+sudo EDITOR=vim visudo # Or sudo EDITOR=nano visudo
 ```
 
-<br>
-
-## Root and users  
-
-```Zsh
-# Set up the root password
-passwd
-
-# Add a new user, in my case mjkstra.
-# -m creates the home dir automatically
-# -G adds the user to an initial list of groups, in this case wheel, the administration group. If you are on a Virtualbox VM and would like to enable shared folders between host and guest machine, then also add the group vboxsf besides wheel.
-useradd -mG wheel mjkstra
-passwd mjkstra
-
-# The command below is a one line command that will open the /etc/sudoers file with your favourite editor.
-# You can choose a different editor than vim by changing the EDITOR variable
-# Once opened, you have to look for a line which says something like "Uncomment to let members of group wheel execute any action"
-# and uncomment exactly the line BELOW it, by removing the #. This will grant superuser priviledges to your user.
-# Why are we issuing this command instead of a simple vim /etc/sudoers ? 
-# Because visudo does more than opening the editor, for example it locks the file from being edited simultaneously and
-# runs syntax checks to avoid committing an unreadable file.
-EDITOR=vim visudo
+### GRUB Bootloader Configuration
+Install GRUB for UEFI systems:
+```bash
+sudo grub-install --target=x86_64-efi --efi-directory=/efi --bootloader-id=GRUB
+```
+Generate GRUB configuration file (this includes microcode):
+```bash
+sudo grub-mkconfig -o /boot/grub/grub.cfg
 ```
 
-<br>
+### Final Steps Before Reboot
+```bash
+# Enable NetworkManager to start on boot
+sudo systemctl enable NetworkManager
 
-## Grub configuration  
-
-Now I'll [deploy grub](https://wiki.archlinux.org/title/GRUB#Installation)  
-
-```Zsh
-grub-install --target=x86_64-efi --efi-directory=/efi --bootloader-id=GRUB  
-```
-
-<br>
-
-Generate the grub configuration ( it will include the microcode installed with pacstrap earlier )  
-
-```Zsh
-grub-mkconfig -o /boot/grub/grub.cfg
-```
-
-<br>
-
-## Unmount everything and reboot 
-
-```Zsh
-# Enable newtork manager before rebooting otherwise, you won't be able to connect
-systemctl enable NetworkManager
-
-# Exit from chroot
+# Exit chroot environment
 exit
 
-# Unmount everything to check if the drive is busy
-umount -R /mnt
+# Unmount all partitions
+sudo umount -R /mnt
 
-# Reboot the system and unplug the installation media
-reboot
+# Reboot the system (remove installation media)
+sudo reboot
+```
+After rebooting, log in with your new user account.
 
-# Now you'll be presented at the terminal. Log in with your user account, for me its "mjkstra".
-
-# Enable and start the time synchronization service
-timedatectl set-ntp true
+Enable time synchronization:
+```bash
+sudo timedatectl set-ntp true
 ```
 
-<br>
+### Automatic Snapshot Boot Entries Update
 
-## Automatic snapshot boot entries update  
-
-Each time a system snapshot is taken with timeshift, it will be available for boot in the bootloader, however you need to manually regenerate the grub configuration, this can be avoided thanks to `grub-btrfs`, which can automatically update the grub boot entries.  
-
-Edit the **`grub-btrfsd`** service and because I will rely on timeshift for snapshotting, I am going to replace `ExecStart=...` with `ExecStart=/usr/bin/grub-btrfsd --syslog --timeshift-auto`. If you don't use timeshift or prefer to manually update the entries then lookup [here](https://github.com/Antynea/grub-btrfs)  
-
-```Zsh 
+Configure `grub-btrfsd` to automatically update GRUB boot entries when Timeshift creates snapshots.
+Edit the `grub-btrfsd.service` file:
+```bash
 sudo systemctl edit --full grub-btrfsd
+```
+Replace the `ExecStart` line with:
+`ExecStart=/usr/bin/grub-btrfsd --syslog --timeshift-auto`
 
-# Enable grub-btrfsd service to run on boot
+If you don't use Timeshift, refer to the [grub-btrfs documentation](https://github.com/Antynea/grub-btrfs).
+
+Enable the service:
+```bash
 sudo systemctl enable grub-btrfsd
 ```
 
-<br>
+### VirtualBox Guest Additions
+(Only if running Arch Linux in a VirtualBox VM)
+This enables clipboard sharing, shared folders, and resolution scaling.
+```bash
+# Install guest utilities
+sudo pacman -S virtualbox-guest-utils
 
-## Virtualbox support  
-
-Follow these steps if you are running Arch on a Virtualbox VM.
-This will enable features such as **clipboard sharing**, **shared folders** and **screen resolution tweaks**
-
-```Zsh
-# Install the guest utils
-pacman -S virtualbox-guest-utils
-
-# Enable this service to automatically load the kernel modules
-systemctl enable vboxservice.service
+# Enable the service to load kernel modules
+sudo systemctl enable vboxservice.service
 ```
+> **Note:** Guest additions will work after a reboot. They generally require a graphical environment.
 
-> Note: the utils will only work after a reboot is performed.
+### AUR Helper and Additional Packages
 
-> Warning: the utils seems to only work in a graphical environment.
+Install an AUR (Arch User Repository) helper like `yay`. `yay` also acts as a `pacman` wrapper.
+> **Warning:** GUI AUR helpers or package managers like `pamac` (from Manjaro) are not officially supported and can lead to [partial upgrades](https://wiki.archlinux.org/title/System_maintenance#Partial_upgrades_are_unsupported).
 
-<br>
+> **Note:** `makepkg` cannot be run as root. Log in as your regular user.
 
-## Aur helper and additional packages installation  
+```bash
+# Install yay dependencies and build yay
+sudo pacman -S --needed git base-devel
+git clone https://aur.archlinux.org/yay.git
+cd yay
+makepkg -si
+cd .. # Go back to previous directory
+rm -rf yay # Clean up build files
 
-To gain access to the arch user repository we need an aur helper, I will choose yay which also works as a pacman wrapper \( which means you can use yay instead of pacman \). Yay has a CLI, but if you later want to have an aur helper with a GUI you can install [`pamac`](https://gitlab.manjaro.org/applications/pamac) \( a Manjaro software, so use at your own risk \), **however** note that front\-ends like `pamac` and also any store \( KDE discovery, Ubuntu store etc. \) are not officially supported and should be avoided, because of the high risk of performing [partial upgrades](https://wiki.archlinux.org/title/System_maintenance#Partial_upgrades_are_unsupported). This is also why later when installing KDE, I will exclude the KDE discovery store from the list of packages.  
-
-To learn more about yay read [here](https://github.com/Jguer/yay#yay)  
-
-> Note: you can't execute makepkg as root, so you need to log in your main account. For me it's mjkstra
-
-```Zsh
-# Install yay
-sudo pacman -S --needed git base-devel && git clone https://aur.archlinux.org/yay.git && cd yay && makepkg -si
-
-# Install "timeshift-autosnap", a configurable pacman hook which automatically makes snapshots before pacman upgrades.
+# Install timeshift-autosnap (automatic snapshots before pacman upgrades)
 yay -S timeshift-autosnap
 ```
+Learn more about `timeshift-autosnap` [here](https://gitlab.com/gobonja/timeshift-autosnap).
 
-> Learn more about timeshift autosnap [here](https://gitlab.com/gobonja/timeshift-autosnap)
-
-<br>
-
-## Finalization
-
-```Zsh
-# To complete the main/basic installation reboot the system
-reboot
+### Finalization
+```bash
+# Reboot to apply all changes
+sudo reboot
 ```
+> Congratulations! You should now have a bootable Arch Linux system. The basic installation is complete. Continue if you want a graphical environment.
 
-> After these steps you **should** be able to boot on your newly installed Arch Linux, if so congrats !  
+---
 
-> The basic installation is complete and you could stop here, but if you want to to have a graphical session, you can continue reading the guide.
+## Video Drivers
 
-<br>
+Install video drivers for optimal graphical performance, especially for gaming. Refer to the [Arch Wiki Xorg page](https://wiki.archlinux.org/title/Xorg#Driver_installation) for guidance.
+> **Note:** Skip this section if you are on a Virtual Machine where guest additions handle graphics.
 
-# Video drivers
+### AMD
 
-In order to have the smoothest experience on a graphical environment, **Gaming included**, we first need to install video drivers. To help you choose which one you want or need, read [this section](https://wiki.archlinux.org/title/Xorg#Driver_installation) of the arch wiki.  
-
-> Note: skip this section if you are on a Virtual Machine
-
-<br>
-
-## Amd  
-
-For this guide I'll install the [**AMDGPU** driver](https://wiki.archlinux.org/title/AMDGPU) which is the open source one and the recommended, but be aware that this works starting from the **GCN 3** architecture, which means that cards **before** RX 400 series are not supported. _\( I have an RX 5700 XT \)_  
-
-```Zsh
-
-# What are we installing ?
+This guide uses the open-source **AMDGPU** driver, recommended for GCN 3 architecture cards and newer (e.g., RX 400 series and later).
+```bash
 # mesa: DRI driver for 3D acceleration.
-# xf86-video-amdgpu: DDX driver for 2D acceleration in Xorg. I won't install this, because I prefer the default kernel modesetting driver.
-# vulkan-radeon: vulkan support.
-# libva-mesa-driver: VA-API h/w video decoding support.
-# mesa-vdpau: VDPAU h/w accelerated video decoding support.
-
+# vulkan-radeon: Vulkan support.
+# libva-mesa-driver: VA-API hardware video decoding.
+# mesa-vdpau: VDPAU hardware video decoding.
+# xf86-video-amdgpu (optional): DDX driver for 2D acceleration in Xorg.
+# This guide omits xf86-video-amdgpu, preferring kernel modesetting.
 sudo pacman -S mesa vulkan-radeon libva-mesa-driver mesa-vdpau
 ```
 
-### 32 Bit support
+#### 32-Bit Support (AMD)
+Enable the `multilib` repository in `/etc/pacman.conf` by uncommenting the `[multilib]` section (remove `#` from both lines).
+```bash
+sudo vim /etc/pacman.conf # Or sudo nano /etc/pacman.conf
+```
+Then, refresh package lists and install 32-bit libraries:
+```bash
+yay # Refreshes and upgrades system (equivalent to sudo pacman -Syu)
 
-If you want to add **32-bit** support, we need to enable the `multilib` repository on pacman: edit `/etc/pacman.conf` and uncomment the `[multilib]` section _\( ie: remove the hashtag from each line of the section. Should be 2 lines \)_. Now we can install the additional packages.
-
-```Zsh
-# Refresh and upgrade the system
-yay
-
-# Install 32bit support for mesa, vulkan, VA-API and VDPAU
 sudo pacman -S lib32-mesa lib32-vulkan-radeon lib32-libva-mesa-driver lib32-mesa-vdpau
 ```
 
-<br>
+### Nvidia
 
-## Nvidia  
+You have two main options:
+1.  [**NVIDIA proprietary driver**](https://wiki.archlinux.org/title/NVIDIA) (recommended for performance)
+2.  [**Nouveau open-source driver**](https://wiki.archlinux.org/title/Nouveau)
 
-In summary if you have an Nvidia card you have 2 options:  
+This guide does not detail Nvidia driver installation due to its complexity and lack of testing hardware. Please consult the Arch Wiki.
 
-1. [**NVIDIA** proprietary driver](https://wiki.archlinux.org/title/NVIDIA)
-2. [**Nouveau** open source driver](https://wiki.archlinux.org/title/Nouveau)
+### Intel
 
-The recommended is the proprietary one, however I won't explain further because I don't have an Nvidia card and the process for such cards is tricky unlike for AMD or Intel cards. Moreover for reason said before, I can't even test it.
+Installation is similar to AMD, often replacing `radeon` with `intel` in package names. For hardware video acceleration, specific packages are needed. Consult the [Arch Wiki Intel graphics page](https://wiki.archlinux.org/title/Intel_graphics#Installation).
 
-<br>
+---
 
-## Intel
+## Setting up a Graphical Environment
 
-Installation looks almost identical to the AMD one, but every time a package contains the `radeon` word substitute it with `intel`. However this does not stand for [h/w accelerated decoding](https://wiki.archlinux.org/title/Hardware_video_acceleration), and to be fair I would recommend reading [the wiki](https://wiki.archlinux.org/title/Intel_graphics#Installation) before doing anything.
+Two options are presented:
+1.  **KDE Plasma**
+2.  **Hyprland** (Tiling Window Manager)
 
-<br>
+A display manager is also recommended.
 
-# Setting up a graphical environment
+### Option 1: KDE Plasma
 
-I'll provide 2 options:  
-
-1. **KDE-plasma**  
-2. **Hyprland**
-
-On top of that I'll add a **display manager**, which you can omit if you don't like ( if so, you have additional configuration steps to perform ).  
-
-<br>
-
-## Option 1: KDE-plasma
-
-**KDE Plasma** is a very popular DE which comes bundled in many distributions. It supports both the older **Xorg** and the newer **Wayland** protocols. It's **user friendly**, **light** and it's also used on the Steam Deck, which makes it great for **gaming**. I'll provide the steps for a minimal installation and add some basic packages.
-
-```Zsh
-# plasma-desktop: the barebones plasma environment.
-# plasma-pa: the KDE audio applet.
-# plasma-nm: the KDE network applet.
-# plasma-systemmonitor: the KDE task manager.
-# plasma-firewall: the KDE firewall.
-# plasma-browser-integration: cool stuff, it lets you manage things from your browser like media currently played via the plasma environment. Make sure to install the related extension on firefox ( you will be prompted automatically upon boot ).
-# kscreen: the KDE display configurator.
-# kwalletmanager: manage secure vaults ( needed to store the passwords of local applications in an encrypted format ). This also installs kwallet as a dependency, so I don't need to specify it.
-# kwallet-pam: automatically unlocks secure vault upon login ( without this, each time the wallet gets queried it asks for your password to unlock it ).
-# bluedevil: the KDE bluetooth manager.
-# powerdevil: the KDE power manager.
-# power-profiles-daemon: adds 3 power profiles selectable from powerdevil ( power saving, balanced, performance ). Make sure that its service is enabled and running ( it should be ).
-# kdeplasma-addons: some useful addons.
-# xdg-desktop-portal-kde: better integrates the plasma desktop in various windows like file pickers.
-# xwaylandvideobridge: exposes Wayland windows to XWayland-using screen sharing apps ( useful when screen sharing on discord, but also in other instances ).
-# kde-gtk-config: the native settings integration to manage GTK theming.
-# breeze-gtk: the breeze GTK theme.
-# cups, print-manager: the CUPS print service and the KDE front-end.
-# konsole: the KDE terminal.
-# dolphin: the KDE file manager.
-# ffmpegthumbs: video thumbnailer for dolphin.
-# firefox: the web browser.
-# kate: the KDE text editor.
-# okular: the KDE pdf viewer.
-# gwenview: the KDE image viewer.
-# ark: the KDE archive manager.
-# pinta: a paint.net clone written in GTK.
-# spectacle: the KDE screenshot tool.
-# dragon: a simple KDE media player. A more advanced alternative based on libmpv is Haruna.
+**KDE Plasma** is a feature-rich, lightweight, and user-friendly desktop environment supporting Xorg and Wayland.
+```bash
+# Minimal Plasma desktop and essential components:
+# plasma-desktop: Core Plasma desktop.
+# plasma-pa: Audio applet.
+# plasma-nm: Network applet.
+# plasma-systemmonitor: Task manager.
+# plasma-firewall: Firewall configuration.
+# plasma-browser-integration: Browser media control, etc.
+# kscreen: Display configuration.
+# kwalletmanager, kwallet-pam: Password management.
+# bluedevil: Bluetooth manager.
+# powerdevil, power-profiles-daemon: Power management.
+# kdeplasma-addons: Useful desktop add-ons.
+# xdg-desktop-portal-kde: Integration for Flatpak/portals.
+# xwaylandvideobridge: Screen sharing compatibility for XWayland apps.
+# kde-gtk-config, breeze-gtk: GTK application theming.
+# cups, print-manager: Printing support.
+# konsole: KDE terminal.
+# dolphin, ffmpegthumbs: KDE file manager and video thumbnails.
+# firefox: Web browser.
+# kate: Text editor.
+# okular: Document viewer.
+# gwenview: Image viewer.
+# ark: Archive manager.
+# pinta: Simple image editor (GTK-based).
+# spectacle: Screenshot tool.
+# dragon: Simple media player. (Haruna is an alternative based on libmpv).
 sudo pacman -S plasma-desktop plasma-pa plasma-nm plasma-systemmonitor plasma-firewall plasma-browser-integration kscreen kwalletmanager kwallet-pam bluedevil powerdevil power-profiles-daemon kdeplasma-addons xdg-desktop-portal-kde xwaylandvideobridge kde-gtk-config breeze-gtk cups print-manager konsole dolphin ffmpegthumbs firefox kate okular gwenview ark pinta spectacle dragon
 ```
+> **Do not reboot yet.** Proceed to [Adding a Display Manager](#adding-a-display-manager). If you skip the display manager, you'll need to [manually configure KDE launch](https://wiki.archlinux.org/title/KDE#From_the_console).
 
-Now don't reboot your system yet. If you want a display manager, which is generally recommended, head to the [related section](#adding-a-display-manager) in this guide and proceed from there otherwise you'll have to [manually configure](https://wiki.archlinux.org/title/KDE#From_the_console) and launch the graphical environment each time \(which I would advise to avoid\).
+### Option 2: Hyprland (WIP)
 
-<br>
+> **Note:** This section is a work-in-progress and requires further configuration.
 
-## Option 2: Hyprland [WIP]  
+**Hyprland** is a dynamic tiling Wayland compositor known for its aesthetics and features. It is based on **wlroots**. Configuration requires reading the [Hyprland Wiki](https://wiki.hyprland.org/) and potentially the [Master Tutorial](https://wiki.hyprland.org/Getting-Started/Master-Tutorial).
 
-> Note: this section needs configuration and is basically empty, I don't know when and if I will expand it but at least you have a starting point.
+```bash
+# Install Hyprland and common utilities:
+# hyprland: The compositor itself.
+# swaylock: Screen locker.
+# wofi: Application launcher (Wayland alternative to rofi).
+# waybar: Status bar for Wayland.
+# dolphin: KDE file manager (can be used with Hyprland).
+# alacritty: GPU-accelerated terminal emulator.
+sudo pacman -S --needed hyprland swaylock wofi waybar dolphin alacritty
 
-<br>
-
-**Hyprland** is a **tiling WM** that sticks to the wayland protocol. It looks incredible and it's one of the best Wayland WMs right now. It's based on **wlroots** the famous library used by Sway, the most mature Wayland WM there is. I don't know if I would recommend this to beginners because it's a totally different experience and it may not be better. Moreover it requires you to read the [wiki](https://wiki.hyprland.org/) for configuration but it also features a [master tutorial](https://wiki.hyprland.org/Getting-Started/Master-Tutorial). The good part is that even if it seems discouraging, it's actually an easy read because it is written beautifully.  
-
-```Zsh
-# Install hyprland from tagged releases and other utils:
-# swaylock: the lockscreen
-# wofi: the wayland version of rofi, an application launcher, extremely configurable
-# waybar: a status bar for wayland wm's
-# dolphin: a powerful file manager from KDE applications
-# alacritty: a beautiful and minimal terminal application, super configurable
-pacman -S --needed hyprland swaylock wofi waybar dolphin alacritty
-
-# wlogout: a logout/shutdown menu
+# wlogout: Logout/shutdown menu (AUR package)
 yay -S wlogout
 ```
 
-<br>
+---
 
-# Adding a display manager
+## Adding a Display Manager
 
-**Display managers** are useful when you have multiple DE or WMs and want to choose where to boot from or select the display protocol \( Wayland or Xorg \) in a GUI fashion, also they take care of the launch process. I'll show the installation process of **SDDM**, which is highly customizable and compatible.
+A **display manager** (login manager) allows selecting your desktop environment/window manager and display protocol (Wayland/Xorg) at startup. **SDDM** is a popular choice.
 
-> Note: hyprland does not support any display manager, however SDDM is reported to work flawlessly from the [wiki](https://wiki.hyprland.org/Getting-Started/Master-Tutorial/#launching-hyprland)
+> **Note:** While Hyprland doesn't officially support display managers, SDDM is [reported to work well](https://wiki.hyprland.org/Getting-Started/Master-Tutorial/#launching-hyprland).
 
-```Zsh
+```bash
 # Install SDDM
 sudo pacman -S sddm
 
-# Enable SDDM service to make it start on boot
+# Enable SDDM service to start on boot
 sudo systemctl enable sddm
 
-# If using KDE I suggest installing this to control the SDDM configuration from the KDE settings App
-pacman -S --needed sddm-kcm
+# For KDE users: install sddm-kcm to configure SDDM from KDE System Settings
+sudo pacman -S --needed sddm-kcm # If you installed KDE
 
-# Now it's time to reboot the system
-reboot
+# Reboot to start with the display manager
+sudo reboot
 ```
 
-<br>
+---
 
-# Gaming
+## Gaming Setup
 
-Gaming on linux has become a very fluid experience, so I'll give some tips on how to setup your arch distro for gaming.  
-Before going further I'll assume that you have installed the video drivers, also make sure to install with pacman, if you haven't done it already: `lib32-mesa`, `lib32-vulkan-radeon` and additionally `lib32-pipewire` \( Note that the `multilib` repository must be enabled, [here](#32-bit-support) I've explained how to do it ).
+Ensure video drivers are installed. Also, ensure `lib32-mesa`, `lib32-vulkan-radeon` (for AMD), and `lib32-pipewire` are installed (requires `multilib` repository).
 
-Let's break down what is needed to game:  
+Key components for Linux gaming:
+1.  **Gaming Client:** (e.g., Steam, Lutris, Bottles)
+2.  **Windows Compatibility Layers:** (e.g., Proton, Wine, DXVK, VKD3D)
 
-1. **Gaming client** ( eg: Steam, Lutris, Bottles, etc..)
-2. **Windows compatibility layers** ( eg: Proton, Wine, DXVK, VKD3D )
+Optional enhancements:
+1.  **Generic Optimizations:** (e.g., Gamemode)
+2.  **Overclocking/Monitoring Software:** (e.g., CoreCtrl, MangoHud)
+3.  **Custom Kernels**
 
-Optionally we can have:  
+### Gaming Clients
 
-1. **Generic optimization** ( eg: gamemode )
-2. **Overclocking and monitoring software** ( eg: CoreCtrl, Mangohud )
-3. **Custom kernels**
-
-<br>
-
-## Gaming clients  
-
-I'll install **Steam** and to access games from other launchers I'll use **Bottles**, which should be installed through **flatpak**.
-
-```Zsh
-# Install steam and flatpak
+Install **Steam** and **Bottles** (via Flatpak for managing Wine prefixes).
+```bash
+# Install Steam and Flatpak
 sudo pacman -S steam flatpak
 
-# Install bottles through flatpak
+# Install Bottles from Flathub
 flatpak install flathub com.usebottles.bottles
 ```
 
-<br>
+### Windows Compatibility Layers
 
-## Windows compatibility layers
-
-Proton is the compatibility layer developed by Valve, which includes **DXVK**( DirectX 9-10-11 to Vulkan), **VKD3D** ( DirectX 12 to Vulkan ) and a custom version of **Wine**. It is embedded in Steam and can be enabled for **non** native games direclty in Steam: `Steam > Settings > Compatibility > Enable Steam Play for all other titles`. A custom version of proton, **Proton GE** exists and can be used as an alternative if something is broken or doesn't perform as expected. Can be either [downloaded manually](https://github.com/GloriousEggroll/proton-ge-custom#installation) or through yay as below.  
-
-```Zsh
-# Installation through yay
+**Proton** (by Valve) bundles Wine, DXVK (DirectX 9-11 to Vulkan), and VKD3D-Proton (DirectX 12 to Vulkan). Enable it in Steam: `Steam > Settings > Compatibility > Enable Steam Play for all other titles`.
+**Proton GE (GloriousEggroll)** is a custom version of Proton often with newer fixes.
+```bash
+# Install Proton GE via AUR
 yay -S proton-ge-custom-bin
 ```
 
-<br>
+### Generic Optimizations
 
-## Generic optimizations
-
-We can use gamemode to gain extra performance. To enable it read [here](https://github.com/FeralInteractive/gamemode#requesting-gamemode)
-
-```Zsh
-# Install gamemode
+**Gamemode** (by Feral Interactive) applies system optimizations when a game is running.
+```bash
+# Install Gamemode
 sudo pacman -S gamemode
 ```
+Refer to the [Gamemode GitHub page](https://github.com/FeralInteractive/gamemode#requesting-gamemode) for usage.
 
-<br>
+### Overclocking and Monitoring
 
-## Overclocking and monitoring
-
-To live monitor your in-game performance, you can use **mangohud**. To enable it read [here](https://github.com/flightlessmango/MangoHud#normal-usage).  
-
-In order to easily configure mangohud, I'll use **Goverlay**.
-
-```Zsh
-# Install goverlay which includes mangohud as a dependency
+**MangoHud** for in-game performance overlay. **GOverlay** for configuring MangoHud.
+```bash
+# Install GOverlay (includes MangoHud)
 sudo pacman -S goverlay
 ```
+Enable MangoHud as per its [documentation](https://github.com/flightlessmango/MangoHud#normal-usage).
 
-To overclock your system, i suggest installing [**corectrl**](https://gitlab.com/corectrl/corectrl) if you have an AMD Gpu or [**TuxClocker**](https://github.com/Lurkki14/tuxclocker) for NVIDIA.
+For GPU overclocking/tuning:
+*   AMD: [**CoreCtrl**](https://gitlab.com/corectrl/corectrl)
+*   NVIDIA: [**TuxClocker**](https://github.com/Lurkki14/tuxclocker)
+Installation for these tools can be found on their respective pages or via `yay`.
 
-<br>
+---
 
-# Additional notes
+## Additional Notes
 
-- On KDE disabling mouse acceleration is simple, just go to the settings via the GUI and on the mouse section enable the flat acceleration profile. If not using KDE then read [here](https://wiki.archlinux.org/title/Mouse_acceleration)
+*   **Mouse Acceleration (KDE):** Disable in `System Settings > Input Devices > Mouse > Advanced > Acceleration Profile: Flat`. For non-KDE environments, see [Arch Wiki: Mouse acceleration](https://wiki.archlinux.org/title/Mouse_acceleration).
+*   **Variable Refresh Rate (FreeSync/G-Sync):** Configuration depends on session type (Wayland/Xorg) and GPU. See [Arch Wiki: Variable refresh rate](https://wiki.archlinux.org/title/Variable_refresh_rate). In KDE Wayland, enable "Adaptive Sync" in display settings.
+*   **Custom Kernels:**
+    *   Require recompilation on updates unless using precompiled versions (e.g., `linux-zen` from official repos, or others from AUR).
+    *   Kernels often involve trade-offs (e.g., latency vs. throughput). The generic kernel is usually fine.
+    *   For gaming, **TKG** or **CachyOS** kernels are options. TKG requires manual compilation. CachyOS provides precompiled kernels installable via their repository. Performance benefits can be subjective and system-dependent.
+*   **Recommended Reads:**
+    *   [How to build your KDE environment](https://community.kde.org/Distributions/Packaging_Recommendations)
+    *   [Gaming on Wayland](https://zamundaaa.github.io/wayland/2021/12/14/about-gaming-on-wayland.html) (older but still relevant)
+    *   [Improving Linux Gaming Performance](https://linux-gaming.kwindu.eu/index.php?title=Improving_performance)
+    *   [Arch Linux System Maintenance](https://wiki.archlinux.org/title/System_maintenance)
+    *   [Arch Linux General Recommendations](https://wiki.archlinux.org/title/General_recommendations)
 
-- To enable Freesync or Gsync you can read [here](https://wiki.archlinux.org/title/Variable_refresh_rate), depending on your session \( Wayland or Xorg \) and your gfx provider \( Nvidia, AMD, Intel \) the steps may differ. On a KDE wayland session, you can directly enable it from the monitor settings under the name of **adaptive sync** 
+---
 
-- Some considerations if you are thinking about switching to a custom kernel:
-  - You have to manually recompile it each time there is a new update unless you use a precompiled kernel from pacman or aur such as `linux-zen`.
-  - There is no such thing as the best kernel, all kernels make tradeoffs \( eg: latency for throughtput \) and this it why it's generally advised to stick with the generic one.
-  - If you are mainly a gamer you MAY consider the **TKG** or **CachyOS** kernel. These kernels contain many optimizations and are highly customizable, however the TKG kernel has to be compiled \( mainly it's time consuming, not hard \), while CachyOS kernel comes already packaged and optimized for specific hardware configurations, and can be simply installed with pacman upon adding their repos to `pacman.conf`. Some users have reported to experience a smoother experience with lower latency, however I couldn't find consistent information about this and it seems that is all backed by a personal sensation and not a result obtained through objective measurements \( Also this is difficult because in Linux there can be countless configuration variables and it also depends by the graphic card being used \). 
-    
-- Some recommended reads:
-  - [How to build your KDE environment](https://community.kde.org/Distributions/Packaging_Recommendations)
-  - [Gaming on Wayland](https://zamundaaa.github.io/wayland/2021/12/14/about-gaming-on-wayland.html) \( old article but still relevant \)
-  - [Improving Linux Gaming Performance](https://linux-gaming.kwindu.eu/index.php?title=Improving_performance)
-  - [Arch linux system maintenance](https://wiki.archlinux.org/title/System_maintenance)
-  - [Arch linux general recommendations](https://wiki.archlinux.org/title/General_recommendations)
-<br>
+## Future Additions
 
-# Things to add
+1.  Additional `pacman` configuration (paccache, colors, parallel downloads).
+2.  `reflector` configuration for automatic mirror ranking.
+3.  **Snapper:** Advanced snapshot management as an alternative to Timeshift.
+4.  Enhanced BTRFS subvolume layout (e.g., separate subvolumes for `/var/log`, `/var/cache`, `/tmp`, and snapshots like `@log`, `@cache`, `@tmp`, `@snapshots`) to exclude them from root filesystem snapshots.
+5.  Optimized `fstab` structure.
 
-1. Additional pacman configuration \( paccache, colors, download packages simultaneously \)
-2. Reflector configuration
-3. Snapper: a more advanced snapshot program as a timeshift alternative.
-4. Overhaul the subvolumes partitioning into a richer set including @log @cache @tmp @snapshots. This way they they won't be included when snapshotting the root subvolume ( ie: @ ).
-5. Better fstab structure
-
-<br>
+---
