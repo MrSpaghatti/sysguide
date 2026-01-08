@@ -29,6 +29,7 @@
 - [Setting up a Graphical Environment](#setting-up-a-graphical-environment)
   - [Option 1: KDE Plasma](#option-1-kde-plasma)
   - [Option 2: Hyprland (WIP)](#option-2-hyprland-wip)
+  - [Option 3: SwayFX (Current Setup)](#option-3-swayfx-current-setup)
 - [Adding a Display Manager](#adding-a-display-manager)
 - [Gaming Setup](#gaming-setup)
   - [Gaming Clients](#gaming-clients)
@@ -489,6 +490,41 @@ sudo pacman -S --needed hyprland swaylock wofi waybar dolphin alacritty
 # wlogout: Logout/shutdown menu (AUR package)
 yay -S wlogout
 ```
+
+### Option 3: SwayFX (Current Setup - Gruvbox Purple)
+
+**SwayFX** is a fork of Sway that adds eye-candy features like blur, rounded corners, and shadows, while maintaining i3 compatibility. This setup uses a "Gruvbox Purple" aesthetic.
+
+```bash
+# Core components:
+# swayfx: Window manager (fork of sway).
+# foot: Terminal emulator (Wayland native).
+# wofi: Application launcher.
+# waybar: Status bar.
+# swaync: Notification center.
+# swaylock-effects: Lock screen with blur/rings.
+# eww-git: Elkowars Wacky Widgets (Dashboard).
+# starship: Shell prompt.
+# fish: Shell.
+# fastfetch: System information tool.
+# thunar: File manager.
+# grim, slurp: Screenshot tools.
+# wl-clipboard: Clipboard management.
+# mako: Notification daemon (Alternative to swaync).
+# polkit-gnome: Authentication agent.
+
+sudo pacman -S swayfx foot wofi waybar starship fish fastfetch thunar grim slurp wl-clipboard polkit-gnome
+
+# Install AUR packages:
+yay -S swaylock-effects-git eww-git swaync-git
+```
+
+**Key Configuration Paths:**
+*   **Sway:** `~/.config/sway/`
+*   **Waybar:** `~/.config/waybar/`
+*   **Eww:** `~/.config/eww/`
+*   **Foot:** `~/.config/foot/`
+*   **Fish:** `~/.config/fish/`
 
 ---
 
